@@ -1,163 +1,219 @@
-# TTA
+# CampusShare
 
+**Plateforme réseau P2P décentralisée pour campus universitaires.**
 
-📡 CampusShare
-> **Plateforme réseau P2P décentralisée pour campus universitaires** — Partage de cours, chat et visioconférence (Meet) en réseau local Wi-Fi, sans connexion Internet requise (**0 Mo de Data Internet consommé**).
+Partage de cours, chat et visioconférence (Meet) sur le Wi-Fi local, sans connexion Internet — **0 Mo de data consommé**.
+
+| | |
+| --- | --- |
+| **Réseau** | LAN / Wi-Fi · Mesh · Wi-Fi Direct |
+| **Client** | Python · Flet |
+| **Serveur** | Django · Django REST · Channels |
+| **Média** | WebRTC · TCP direct · SHA-256 |
+| **Licence** | MIT |
+
 ---
-📋 Sommaire
-À propos du projet
-Fonctionnalités clés
-Architecture Technique
-Structure du Dépôt
-Protocole Réseau P2P & Sécurité
-Endpoints API REST & WebSockets
-Installation & Démarrage Rapide
-Feuille de Route (Roadmap)
-Contribution & Licence
+
+## Sommaire
+
+- [À propos](#à-propos)
+- [Fonctionnalités](#fonctionnalités)
+- [Architecture](#architecture)
+- [Structure du dépôt](#structure-du-dépôt)
+- [Protocole P2P et sécurité](#protocole-p2p-et-sécurité)
+- [API REST et WebSockets](#api-rest-et-websockets)
+- [Installation](#installation)
+- [Feuille de route](#feuille-de-route)
+- [Licence et crédits](#licence-et-crédits)
+
 ---
-🎯 À propos du projet
-En environnement universitaire, l'accès à Internet est souvent limité, coûteux ou sujet à des coupures d'électricité récurrentes (délestages).
-CampusShare résout ce problème en exploitant le réseau Wi-Fi local (Mesh / Wi-Fi Direct) de l'établissement. L'application permet aux étudiants et aux enseignants de :
-Échanger des fichiers de cours (CM, TD, TP, corrections d'examens) à ultra-haute vitesse (jusqu'à 52 Mo/s).
-Discuter en direct par canal d'Unité d'Enseignement (UE).
-Lancer des visioconférences ou cours à distance (Local P2P Meets) avec partage d'écran à très faible latence (< 2 ms).
+
+## À propos
+
+En environnement universitaire, l'accès à Internet est souvent limité, coûteux ou coupé par des délestages.
+
+CampusShare s'appuie sur le Wi-Fi local de l'établissement (mesh / Wi-Fi Direct). Étudiants et enseignants peuvent :
+
+- échanger des fichiers de cours (CM, TD, TP, corrections) jusqu'à **52 Mo/s** ;
+- discuter en direct par unité d'enseignement (UE) ;
+- lancer des visioconférences locales (Local P2P Meet) avec partage d'écran, latence **inférieure à 2 ms**.
+
 ---
-✨ Fonctionnalités clés
-⚡ Zero Internet Data : Fonctionne à 100% sur le réseau local (LAN / Wi-Fi de l'amphi).
-🛡️ Anti-Blackout Cache : Découpage des fichiers en blocs vérifiés par hachage SHA-256. En cas de coupure de courant ou de Wi-Fi, le téléchargement reprend exactement là où il s'était arrêté.
-🤝 Découverte Automatique de Pairs (P2P Mesh) : Détection automatique des étudiants connectés dans l'amphithéâtre via UDP Broadcast / Zeroconf.
-📹 Local P2P Calls & Screen Sharing : Visioconférences animées par les enseignants ou délégués basées sur WebRTC natif.
-🔐 Badge Étudiant & Rôles : Authentification sécurisée par matricule/badge universitaire avec attribution des rôles (Faculty Host / Student Peer).
+
+## Fonctionnalités
+
+| | Fonction | Détail |
+| --- | --- | --- |
+| | **Zéro data Internet** | Fonctionne entièrement sur le LAN / Wi-Fi de l'amphi. |
+| | **Cache anti-coupure** | Fichiers découpés en blocs vérifiés par SHA-256. Après une coupure de courant ou de Wi-Fi, le téléchargement reprend au dernier bloc reçu. |
+| | **Découverte des pairs** | Détection automatique des machines de l'amphithéâtre (UDP broadcast / Zeroconf). |
+| | **Appels et partage d'écran** | Visioconférences animées par les enseignants ou les délégués, via WebRTC natif. |
+| | **Badge et rôles** | Connexion par matricule universitaire. Rôles `Faculty Host` et `Student Peer`. |
+
 ---
-🏗️ Architecture Technique
-```
+
+## Architecture
+
+```text
 +-------------------------------------------------------------------------------+
 |                       FRONTEND CLIENT (Python Flet)                           |
-|  - UI Réactive (Chat, Cours & TP, Local P2P Calls, Settings)                 |
-|  - Moteur Local & Cache (Stockage chiffré par bloc SHA-256)                  |
-|  - Client WebRTC (Appels P2P) & Sockets TCP Directs (Seeder / Leecher)        |
+|  - UI réactive (Chat, Cours & TP, Local P2P Calls, Settings)                  |
+|  - Moteur local et cache (stockage chiffré par bloc SHA-256)                  |
+|  - Client WebRTC (appels P2P) et sockets TCP directs (seeder / leecher)       |
 +---------------------------------------|---------------------------------------+
                                         | HTTP REST / WebSockets (LAN Wi-Fi)
                                         v
 +-------------------------------------------------------------------------------+
 |                       BACKEND CENTRAL (Python Django)                         |
-|  - Django REST Framework : Indexation des cours & Annuaire des Nœuds          |
-|  - Django Channels (WebSockets) : Signalement SDP/ICE WebRTC & Presences      |
-|  - Base de données : PostgreSQL / SQLite (Stockage des métadonnées)           |
+|  - Django REST Framework : index des cours et annuaire des nœuds              |
+|  - Django Channels (WebSockets) : signalement SDP/ICE WebRTC et présences     |
+|  - Base de données : PostgreSQL / SQLite (métadonnées uniquement)             |
 +-------------------------------------------------------------------------------+
 ```
+
+Le backend indexe et signale. Les fichiers et les flux média passent **directement d'un appareil à l'autre**.
+
 ---
-📁 Structure du Dépôt
-Le projet est organisé selon une séparation stricte entre le Backend Django (indexation et signalement) et le Frontend Flet (interface et moteur P2P).
+
+## Structure du dépôt
+
+Séparation stricte : Django pour l'index et le signalement, Flet pour l'interface et le moteur P2P.
+
 ```text
 campus-share/
 │
-├── backend/                        # Serveur Django (API & Signalement WebRTC)
+├── backend/                        # Serveur Django (API et signalement WebRTC)
 │   ├── manage.py
-│   ├── config/                     # Paramètres globaux, ASGI/WSGI, routing URLs
+│   ├── config/                     # Paramètres, ASGI/WSGI, routage
 │   │   ├── settings.py
 │   │   ├── asgi.py
 │   │   └── urls.py
 │   ├── apps/
-│   │   ├── authentication/         # Gestion des utilisateurs et badges étudiants (STU-XXXX)
-│   │   ├── network_registry/       # Annuaire des nœuds actifs sur le réseau (IP/Port)
-│   │   ├── repository/             # Index des fichiers (Hash SHA-256, Seeders)
-│   │   ├── signaling/              # Consumer WebSocket pour la négociation WebRTC
-│   │   └── chat/                   # Historique des messages par Unité d'Enseignement
+│   │   ├── authentication/         # Utilisateurs et badges (STU-XXXX)
+│   │   ├── network_registry/       # Annuaire des nœuds actifs (IP / port)
+│   │   ├── repository/             # Index des fichiers (hash SHA-256, seeders)
+│   │   ├── signaling/              # Consumer WebSocket (négociation WebRTC)
+│   │   └── chat/                   # Historique des messages par UE
 │   └── requirements.txt
 │
-├── frontend/                       # Client Desktop/Mobile (Python Flet)
-│   ├── main.py                     # Point d'entrée de l'application UI Flet
-│   ├── config.py                   # IP du serveur local et ports par défaut
-│   ├── core/                       # Moteurs réseau natifs & I/O
-│   │   ├── p2p_socket_engine.py    # Serveur/Client TCP pour transfert de blocs
-│   │   ├── storage_manager.py      # Cache local anti-blackout & validation SHA-256
-│   │   ├── zeroconf_scanner.py     # Scanner de réseau local (UDP broadcast)
-│   │   └── webrtc_engine.py        # Gestionnaire de flux audio/vidéo P2P
-│   ├── services/                   # Connecteurs d'API Backend
-│   │   ├── api_client.py           # Requêtes HTTP/REST vers Django
-│   │   ├── websocket_client.py     # Signalisation WebSockets
-│   │   └── auth_service.py         # Authentification et gestion des tokens JWT
-│   ├── state/                      # Gestionnaires d'état réactifs
-│   │   ├── app_state.py            # Statut du nœud (IP, débit, mode Anti-Lag)
-│   │   └── network_state.py        # Liste des pairs et salons actifs
-│   └── views/                      # Écrans de l'interface Flet
-│       ├── components/             # Sidebar, Header réseau, cartes de cours
-│       ├── chat_view.py            # Interface des salons de discussion
-│       ├── courses_view.py         # Bibliothèque des ressources éducatives
-│       ├── calls_view.py            # Visioconférence & Partage d'écran (Meet)
-│       └── settings_view.py        # Configuration du nœud & allocation du cache
+├── frontend/                       # Client desktop / mobile (Python Flet)
+│   ├── main.py                     # Point d'entrée
+│   ├── config.py                   # IP du serveur local et ports
+│   ├── core/                       # Moteurs réseau et I/O
+│   │   ├── p2p_socket_engine.py    # TCP : transfert de blocs
+│   │   ├── storage_manager.py      # Cache anti-coupure et SHA-256
+│   │   ├── zeroconf_scanner.py     # Découverte locale (UDP)
+│   │   └── webrtc_engine.py        # Flux audio / vidéo P2P
+│   ├── services/                   # Clients du backend
+│   │   ├── api_client.py           # HTTP / REST
+│   │   ├── websocket_client.py     # Signalisation WebSocket
+│   │   └── auth_service.py         # JWT
+│   ├── state/
+│   │   ├── app_state.py            # IP, débit, mode anti-lag
+│   │   └── network_state.py        # Pairs et salons actifs
+│   └── views/
+│       ├── components/             # Sidebar, en-tête réseau, cartes de cours
+│       ├── chat_view.py
+│       ├── courses_view.py
+│       ├── calls_view.py           # Visioconférence et partage d'écran
+│       └── settings_view.py
 │
-├── docker-compose.yml              # Lancement du backend local via Docker
-└── README.md                       # Documentation officielle du projet
+├── docker-compose.yml
+└── README.md
 ```
+
 ---
-🔒 Protocole Réseau P2P & Sécurité
-1. Transfert de Fichiers (Direct P2P Link)
-Publication : Le fichier est découpé localement en blocs (chunks) de 1 Mo. Le hash SHA-256 du fichier global et de chaque bloc est calculé et enregistré sur l'index Django.
-Découverte des Seeders : Lorsqu'un étudiant clique sur `Télécharger`, Flet demande à Django l'IP des étudiants (seeders) possédant déjà ce fichier.
-Aspiration TCP Directe : Le client ouvre des sockets TCP natifs avec les seeders. Le transfert s'effectue en direct de pair à pair.
-2. Visioconférence (Local P2P Meet)
-Le client émetteur crée une offre SDP (Session Description Protocol).
-L'offre est transmise au destinataire via le canal WebSocket Django Channels (`/ws/signaling/<room_id>/`).
-Les candidats ICE sont échangés. La connexion média WebRTC s'établit en direct entre les deux appareils sans surcharger le serveur.
+
+## Protocole P2P et sécurité
+
+### 1. Transfert de fichiers
+
+1. **Publication.** Le fichier est découpé en blocs de 1 Mo. Le SHA-256 du fichier et de chaque bloc est enregistré dans l'index Django.
+2. **Découverte des seeders.** Au clic sur Télécharger, Flet demande à Django les IP des étudiants qui possèdent déjà le fichier.
+3. **Transfert TCP direct.** Le client ouvre des sockets TCP vers ces seeders. Les octets ne transitent pas par le serveur.
+
+### 2. Visioconférence (Local P2P Meet)
+
+1. L'émetteur crée une offre SDP (Session Description Protocol).
+2. L'offre passe par le canal WebSocket Django Channels : `/ws/signaling/<room_id>/`.
+3. Les candidats ICE sont échangés. Le flux WebRTC s'établit ensuite **en direct** entre les deux appareils.
+
 ---
-🔌 Endpoints API REST & WebSockets
-REST API (Django REST Framework)
-Méthode	Endpoint	Description
-`POST`	`/api/v1/auth/login/`	Connexion étudiant et obtention du Token JWT
-`GET`	`/api/v1/network/peers/`	Liste des nœuds pairs actifs sur le sous-réseau amphi
-`GET`	`/api/v1/resources/`	Recherche et filtrage de cours (CM, TD, TP, Examens)
-`POST`	`/api/v1/resources/announce/`	Déclarer la détention d'un fichier (devenir Seeder)
-WebSockets
-Route	Description
-`ws://<server_ip>:8000/ws/chat/<ue_code>/`	Canal de discussion texte en temps réel par UE
-`ws://<server_ip>:8000/ws/signaling/<room_id>/`	Canal de signalement WebRTC pour appels vidéo et partage d'écran
+
+## API REST et WebSockets
+
+### REST (Django REST Framework)
+
+| Méthode | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/api/v1/auth/login/` | Connexion et obtention du token JWT |
+| `GET` | `/api/v1/network/peers/` | Nœuds actifs sur le sous-réseau de l'amphi |
+| `GET` | `/api/v1/resources/` | Recherche de cours (CM, TD, TP, examens) |
+| `POST` | `/api/v1/resources/announce/` | Déclarer qu'on possède un fichier (devenir seeder) |
+
+### WebSockets
+
+| Route | Description |
+| --- | --- |
+| `ws://<server_ip>:8000/ws/chat/<ue_code>/` | Discussion texte en temps réel, par UE |
+| `ws://<server_ip>:8000/ws/signaling/<room_id>/` | Signalement WebRTC (vidéo et partage d'écran) |
+
 ---
-🚀 Installation & Démarrage Rapide
-Prérequis
-Python 3.10+ installe sur les machines
-Git
-Connecté au même réseau Wi-Fi local (pas besoin de connexion Internet)
-1. Lancement du Backend Django
+
+## Installation
+
+### Prérequis
+
+- Python 3.10 ou plus récent
+- Git
+- Toutes les machines sur le **même Wi-Fi local** (Internet non requis)
+
+### 1. Backend Django
+
 ```bash
-# Se déplacer dans le dossier backend
 cd backend
 
-# Créer et activer un environnement virtuel
 python -m venv venv
-source venv/bin/activate  # Sur Windows: venv\Scripts\activate
+source venv/bin/activate          # Windows : venv\Scripts\activate
 
-# Installer les dépendances
 pip install -r requirements.txt
 
-# Appliquer les migrations et lancer le serveur
 python manage.py migrate
 python manage.py runserver 0.0.0.0:8000
 ```
-2. Lancement du Client Flet (Frontend)
+
+Le serveur écoute sur toutes les interfaces du LAN, port **8000**.
+
+### 2. Client Flet
+
+Dans un second terminal :
+
 ```bash
-# Ouvrir un nouveau terminal dans le dossier frontend
 cd frontend
 
-# Créer et activer un environnement virtuel
 python -m venv venv
-source venv/bin/activate  # Sur Windows: venv\Scripts\activate
+source venv/bin/activate          # Windows : venv\Scripts\activate
 
-# Installer Flet et les dépendances réseau
 pip install flet httpx zeroconf aiortc
-
-# Lancer l'application
 python main.py
 ```
+
 ---
-🗓️ Feuille de Route (Roadmap - 1.5 Semaine)
-[x] Jour 1-2 : Architecture des dossiers, schéma BDD Django et maquettage UI Flet.
-[x] Jour 3-4 : Développement du registre des nœuds et scanner UDP Zeroconf.
-[ ] Jour 5-7 : Moteur P2P de transfert par bloc (Sockets TCP & Anti-Blackout Cache).
-[ ] Jour 8-9 : Signalisation WebSockets & Moteur d'appel WebRTC P2P (Local Meet).
-[ ] Jour 10 : Tests de charge en amphi, recette globale et livraison du binaire.
+
+## Feuille de route
+
+Durée prévue : **1,5 semaine**.
+
+- [x] **Jours 1–2** — Architecture des dossiers, schéma de base Django, maquette Flet
+- [x] **Jours 3–4** — Registre des nœuds et scanner UDP Zeroconf
+- [ ] **Jours 5–7** — Transfert P2P par blocs (sockets TCP et cache anti-coupure)
+- [ ] **Jours 8–9** — Signalisation WebSocket et appels WebRTC (Local Meet)
+- [ ] **Jour 10** — Tests de charge en amphi, recette et livraison du binaire
+
 ---
-📄 Licence & Crédits
-Projet développé par Alexandre Dumas & l'Équipe Ingénierie Logicielle Groupe 9.  
-Distribué sous licence MIT. Libre d'utilisation pour tous les établissements d'enseignement supérieur.
+
+## Licence et crédits
+
+Projet développé par **Alexandre Dumas** et l'équipe Ingénierie Logicielle, **Groupe 9**.
+
+Distribué sous licence MIT. Libre d'utilisation pour les établissements d'enseignement supérieur.
