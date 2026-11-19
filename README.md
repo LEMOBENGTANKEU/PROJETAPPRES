@@ -190,6 +190,19 @@ utilisé en production : définir `DJANGO_SECRET_KEY` et `DJANGO_DEBUG=false`
 dans l'environnement de déploiement. Le serveur écoute sur toutes les
 interfaces du LAN, port **8000**.
 
+### API d'authentification
+
+Toutes les routes sont préfixées par `/api/v1/auth/`. L'inscription publique
+crée un compte étudiant; les rôles enseignant et administrateur doivent être
+attribués par une personne autorisée.
+
+| Méthode | Route | Accès | Description |
+| --- | --- | --- | --- |
+| `POST` | `/api/v1/auth/register/` | Public | Créer un compte étudiant (`username`, `email`, `password`). |
+| `POST` | `/api/v1/auth/login/` | Public | Obtenir les jetons JWT (`username`, `password`). |
+| `POST` | `/api/v1/auth/refresh/` | Public | Renouveler le jeton d'accès (`refresh`). |
+| `GET` | `/api/v1/auth/me/` | JWT requis | Consulter son profil avec `Authorization: Bearer <access>`. |
+
 ### 2. Client Flet
 
 Dans un second terminal :

@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",
     "apps.authentication.apps.AuthenticationConfig",
 ]
 
@@ -67,6 +68,15 @@ DATABASES = {
 }
 
 AUTH_USER_MODEL = "authentication.User"
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
 
 AUTH_PASSWORD_VALIDATORS = [
     {
