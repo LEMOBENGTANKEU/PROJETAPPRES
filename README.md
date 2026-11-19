@@ -173,16 +173,22 @@ campus-share/
 ```bash
 cd backend
 
-python -m venv venv
-source venv/bin/activate          # Windows : venv\Scripts\activate
+python -m venv .venv
+# Windows PowerShell : .\.venv\Scripts\Activate.ps1
+# Linux / macOS      : source .venv/bin/activate
 
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 
 python manage.py migrate
+python manage.py test
 python manage.py runserver 0.0.0.0:8000
 ```
 
-Le serveur écoute sur toutes les interfaces du LAN, port **8000**.
+Le backend démarre avec SQLite et le modèle utilisateur CampusShare (étudiant,
+enseignant, administrateur). Le secret de développement ne doit jamais être
+utilisé en production : définir `DJANGO_SECRET_KEY` et `DJANGO_DEBUG=false`
+dans l'environnement de déploiement. Le serveur écoute sur toutes les
+interfaces du LAN, port **8000**.
 
 ### 2. Client Flet
 
