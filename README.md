@@ -203,6 +203,24 @@ attribués par une personne autorisée.
 | `POST` | `/api/v1/auth/refresh/` | Public | Renouveler le jeton d'accès (`refresh`). |
 | `GET` | `/api/v1/auth/me/` | JWT requis | Consulter son profil avec `Authorization: Bearer <access>`. |
 
+### API du catalogue
+
+Toutes les routes requièrent un JWT. Les ressources sont indexées par le
+backend; le contenu des fichiers n'y est pas téléversé. La publication est
+réservée aux enseignants et administrateurs. Les étudiants peuvent consulter
+les ressources publiées et rechercher avec `course_code`, `category` ou `q`.
+Le manifeste contient les empreintes SHA-256 des blocs en hexadécimal minuscule;
+l'empreinte racine est le SHA-256 de la concaténation de leurs octets décodés.
+
+| Méthode | Route | Description |
+| --- | --- | --- |
+| `GET` | `/api/v1/repository/resources/` | Catalogue paginé et recherche. |
+| `POST` | `/api/v1/repository/resources/` | Publier les métadonnées et le manifeste SHA-256. |
+| `GET` | `/api/v1/repository/resources/{id}/` | Détail d'une ressource publiée. |
+| `PATCH` | `/api/v1/repository/resources/{id}/` | Modifier sa ressource (enseignant propriétaire) ou une ressource (administrateur). |
+| `DELETE` | `/api/v1/repository/resources/{id}/` | Retirer sa ressource ou une ressource (administrateur). |
+| `GET` | `/api/v1/repository/resources/{id}/manifest/` | Récupérer les tailles de blocs et empreintes. |
+
 ### 2. Client Flet
 
 Dans un second terminal :
