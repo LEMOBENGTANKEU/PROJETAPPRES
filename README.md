@@ -257,7 +257,14 @@ Le noyau réseau indépendant de Flet se trouve dans `core/p2p/`. Il calcule un
 manifeste SHA-256, sert les blocs disponibles en TCP sur une adresse du LAN,
 vérifie chaque bloc reçu et conserve les blocs validés dans un fichier `.part`
 avec un journal atomique de reprise. Les fichiers finaux sont renommés après
-validation complète. Le moteur n'est pas encore relié aux écrans Flet.
+validation complète. L'ordonnanceur interroge le bitfield de chaque pair,
+priorise les blocs rares, répartit les requêtes avec une limite par pair et
+réessaie un bloc auprès d'un autre seeder après un échec.
+
+Le moteur reste un service Python indépendant : l'écran Flet de démonstration
+contient encore des ressources fictives, sans manifestes ni adresses de pairs;
+le branchement du bouton de téléchargement attend donc la connexion réelle au
+catalogue et au registre réseau.
 
 Exécuter les tests du moteur depuis la racine du dépôt :
 

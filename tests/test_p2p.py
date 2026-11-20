@@ -11,8 +11,15 @@ from core.p2p import (
     PieceStore,
     build_manifest,
     download_piece,
+    download_resource,
+    order_pieces_by_rarity,
 )
-from core.p2p.errors import IntegrityError, ManifestError, ProtocolError
+from core.p2p.errors import (
+    IntegrityError,
+    ManifestError,
+    ProtocolError,
+    TransferError,
+)
 
 
 class ManifestTests(unittest.TestCase):
@@ -53,6 +60,14 @@ class ManifestTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             PeerEndpoint("8.8.8.8", 9000)
 
+    def test_rarest_pieces_are_scheduled_first(self):
+        order = order_pieces_by_rarity(
+            {0, 1, 2, 3},
+            ({0, 1, 3}, {0, 2}, {0, 3}),
+        )
+
+        self.assertEqual(order, (1, 2, 3, 0))
+
 
 class PeerTransferTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -67,10 +82,19 @@ class PeerTransferTests(unittest.IsolatedAsyncioTestCase):
         self.endpoint = PeerEndpoint(address[0], address[1])
         self.cache = self.root / "cache"
         self.store = PieceStore(self.cache, self.manifest)
+        self.extra_servers = []
 
     async def asyncTearDown(self):
         await self.server.close()
+        for server in self.extra_servers:
+            await server.close()
         self.temporary_directory.cleanup()
+
+    async def start_peer(self, source, available_pieces=None):
+        server = PeerBlockServer(source, self.manifest, available_pieces)
+        address = await server.start("127.0.0.1", 0)
+        self.extra_servers.append(server)
+        return PeerEndpoint(address[0], address[1])
 
     async def test_downloads_and_finalizes_verified_pieces(self):
         first = await download_piece(self.endpoint, self.manifest, 0, self.store)
@@ -128,3 +152,67 @@ class PeerTransferTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(IntegrityError):
             self.store.write_piece(0, b"wrong bytes")
         self.assertFalse(self.store.has_piece(0))
+
+    async def test_scheduler_downloads_rare_and_distributed_pieces_from_two_peers(self):
+        self.server.update_availability({0, 2})
+        second_endpoint = await self.start_peer(self.source, {1, 2})
+        progress = []
+
+        summary = await download_resource(
+            [self.endpoint, second_endpoint],
+            self.manifest,
+            self.store,
+            concurrency=2,
+            per_peer_concurrency=1,
+            on_piece_complete=progress.append,
+        )
+
+        self.assertEqual(Path(summary.file_path).read_bytes(), self.contents)
+        self.assertEqual(summary.completed_pieces, self.manifest.piece_count)
+        self.assertEqual(sum(summary.peer_piece_counts.values()), self.manifest.piece_count)
+        self.assertEqual(len(progress), self.manifest.piece_count)
+        self.assertEqual(
+            sorted(item.completed_pieces for item in progress),
+            [1, 2, self.manifest.piece_count],
+        )
+
+    async def test_scheduler_retries_failed_piece_from_another_peer(self):
+        valid_source = self.root / "valid-source.bin"
+        valid_source.write_bytes(self.contents)
+        bad_source = self.root / "bad-source.bin"
+        bad_source.write_bytes(b"X" + self.contents[1:])
+        bad_server = PeerBlockServer(bad_source, self.manifest, {0})
+        bad_address = await bad_server.start("127.0.0.1", 0)
+        self.extra_servers.append(bad_server)
+        valid_endpoint = await self.start_peer(
+            valid_source,
+            set(range(self.manifest.piece_count)),
+        )
+        bad_endpoint = PeerEndpoint(bad_address[0], bad_address[1])
+
+        summary = await download_resource(
+            [bad_endpoint, valid_endpoint],
+            self.manifest,
+            self.store,
+            concurrency=1,
+        )
+
+        self.assertEqual(Path(summary.file_path).read_bytes(), self.contents)
+        self.assertEqual(
+            summary.peer_piece_counts,
+            {valid_endpoint: self.manifest.piece_count},
+        )
+
+    async def test_scheduler_reports_missing_pieces_without_discarding_valid_ones(self):
+        self.server.update_availability({0})
+
+        with self.assertRaises(TransferError):
+            await download_resource(
+                [self.endpoint],
+                self.manifest,
+                self.store,
+                concurrency=2,
+            )
+
+        self.assertEqual(self.store.completed_pieces, {0})
+        self.assertFalse(self.store.is_complete)

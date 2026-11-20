@@ -306,3 +306,49 @@ async def download_piece(endpoint, manifest, index, store, timeout=10):
         return await asyncio.wait_for(transfer(), timeout=timeout)
     except asyncio.TimeoutError as exc:
         raise ProtocolError("Le délai de connexion au pair a expiré.") from exc
+
+
+async def get_peer_pieces(endpoint, manifest, timeout=10):
+    if not isinstance(endpoint, PeerEndpoint):
+        raise TypeError("endpoint doit être un PeerEndpoint.")
+    if not isinstance(manifest, FileManifest):
+        raise TypeError("manifest doit être un FileManifest.")
+
+    async def query():
+        reader, writer = await asyncio.open_connection(endpoint.host, endpoint.port)
+        try:
+            await _send_json(
+                writer,
+                {
+                    "type": "HELLO",
+                    "protocol": PROTOCOL_VERSION,
+                    "root_hash": manifest.root_hash,
+                },
+            )
+            frame = await _read_json(reader)
+            if frame.get("type") == "ERROR":
+                raise ProtocolError(frame.get("message", "Le pair a refusé la connexion."))
+            if (
+                frame.get("type") != "BITFIELD"
+                or frame.get("root_hash") != manifest.root_hash
+                or type(frame.get("piece_count")) is not int
+                or frame.get("piece_count") != manifest.piece_count
+            ):
+                raise ProtocolError("Le pair a renvoyé un manifeste différent.")
+            bitfield = _decode_bitfield(frame.get("bitfield", ""), manifest.piece_count)
+            return frozenset(
+                index
+                for index in range(manifest.piece_count)
+                if bitfield[index // 8] & (1 << (index % 8))
+            )
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except OSError:
+                logger.debug("Fermeture de connexion P2P interrompue.", exc_info=True)
+
+    try:
+        return await asyncio.wait_for(query(), timeout=timeout)
+    except asyncio.TimeoutError as exc:
+        raise ProtocolError("Le délai de connexion au pair a expiré.") from exc

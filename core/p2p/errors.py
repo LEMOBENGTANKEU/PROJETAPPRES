@@ -16,3 +16,7 @@ class IntegrityError(P2PError):
 
 class StorageError(P2PError):
     """The local partial-transfer state could not be safely used."""
+
+
+class TransferError(P2PError):
+    """A resource could not be completed from the available peers."""
