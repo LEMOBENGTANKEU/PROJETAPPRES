@@ -221,6 +221,22 @@ l'empreinte racine est le SHA-256 de la concaténation de leurs octets décodés
 | `DELETE` | `/api/v1/repository/resources/{id}/` | Retirer sa ressource ou une ressource (administrateur). |
 | `GET` | `/api/v1/repository/resources/{id}/manifest/` | Récupérer les tailles de blocs et empreintes. |
 
+### API du registre réseau
+
+Toutes les routes requièrent un JWT. Un appareil s'enregistre avec une clé
+publique hexadécimale, une adresse IP privée et un port TCP. Le délai
+d'expiration du heartbeat est de 90 secondes par défaut et peut être réglé avec
+`PEER_HEARTBEAT_TIMEOUT_SECONDS`. En production, exécuter périodiquement
+`python manage.py prune_stale_nodes` pour marquer hors ligne les nœuds expirés.
+
+| Méthode | Route | Accès | Description |
+| --- | --- | --- | --- |
+| `POST` | `/api/v1/network/nodes/` | JWT requis | Enregistrer un appareil pour le compte connecté. |
+| `GET` | `/api/v1/network/nodes/` | JWT requis | Lister ses propres appareils enregistrés. |
+| `POST` | `/api/v1/network/nodes/{id}/heartbeat/` | Propriétaire | Actualiser la présence de son appareil. |
+| `DELETE` | `/api/v1/network/nodes/{id}/` | Propriétaire | Désenregistrer son appareil. |
+| `GET` | `/api/v1/network/peers/` | JWT requis | Lister les appareils actifs, sans exposer leurs clés publiques. |
+
 ### 2. Client Flet
 
 Dans un second terminal :

@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "apps.authentication.apps.AuthenticationConfig",
     "apps.repository.apps.RepositoryConfig",
+    "apps.network_registry.apps.NetworkRegistryConfig",
 ]
 
 MIDDLEWARE = [
@@ -103,3 +104,6 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+PEER_HEARTBEAT_TIMEOUT_SECONDS = int(
+    os.environ.get("PEER_HEARTBEAT_TIMEOUT_SECONDS", "90")
+)
