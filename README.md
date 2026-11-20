@@ -251,6 +251,23 @@ pip install flet httpx zeroconf aiortc
 python main.py
 ```
 
+### Moteur P2P par blocs
+
+Le noyau réseau indépendant de Flet se trouve dans `core/p2p/`. Il calcule un
+manifeste SHA-256, sert les blocs disponibles en TCP sur une adresse du LAN,
+vérifie chaque bloc reçu et conserve les blocs validés dans un fichier `.part`
+avec un journal atomique de reprise. Les fichiers finaux sont renommés après
+validation complète. Le moteur n'est pas encore relié aux écrans Flet.
+
+Exécuter les tests du moteur depuis la racine du dépôt :
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Le pair serveur doit être explicitement lié à son adresse LAN, par exemple
+`192.168.1.25`; le client refuse les destinations IP publiques.
+
 ---
 
 ## Feuille de route
