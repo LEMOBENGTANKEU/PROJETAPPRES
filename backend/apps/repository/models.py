@@ -5,6 +5,39 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 
+class FileSeeder(models.Model):
+    class Availability(models.TextChoices):
+        FULL = "FULL", "Fichier complet"
+        PARTIAL = "PARTIAL", "Fichier partiel"
+
+    resource = models.ForeignKey(
+        "repository.AcademicResource",
+        on_delete=models.CASCADE,
+        related_name="seeders",
+    )
+    node = models.ForeignKey(
+        "network_registry.PeerNodeIdentity",
+        on_delete=models.CASCADE,
+        related_name="shared_files",
+    )
+    availability = models.CharField(
+        max_length=8,
+        choices=Availability.choices,
+        default=Availability.PARTIAL,
+    )
+    bitfield = models.TextField()
+    pieces_available = models.PositiveIntegerField()
+    last_announced = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["resource", "node"],
+                name="uniq_resource_node",
+            ),
+        ]
+
+
 class AcademicResource(models.Model):
     class Category(models.TextChoices):
         COURSE = "COURSE", "Cours"

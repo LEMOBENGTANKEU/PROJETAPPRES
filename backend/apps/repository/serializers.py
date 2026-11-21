@@ -1,13 +1,19 @@
+import base64
+import binascii
 import hashlib
 import re
 
+from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 
-from .models import AcademicResource
+from apps.network_registry.models import PeerNodeIdentity
+
+from .models import AcademicResource, FileSeeder
 
 
 class AcademicResourceSerializer(serializers.ModelSerializer):
     uploaded_by = serializers.ReadOnlyField(source="uploaded_by.username")
+    seeders = serializers.IntegerField(source="online_seeders", read_only=True, default=0)
 
     class Meta:
         model = AcademicResource
@@ -24,6 +30,7 @@ class AcademicResourceSerializer(serializers.ModelSerializer):
             "piece_count",
             "root_hash",
             "manifest",
+            "seeders",
             "uploaded_by",
             "is_published",
             "created_at",
@@ -86,3 +93,86 @@ class ResourceManifestSerializer(serializers.ModelSerializer):
     class Meta:
         model = AcademicResource
         fields = ("id", "piece_size", "piece_count", "root_hash", "manifest")
+
+
+class FileSeederSerializer(serializers.ModelSerializer):
+    node_id = serializers.UUIDField(source="node.id", read_only=True)
+    lan_ip = serializers.IPAddressField(source="node.lan_ip", read_only=True)
+    tcp_port = serializers.IntegerField(source="node.tcp_port", read_only=True)
+    node_name = serializers.CharField(source="node.node_name", read_only=True)
+
+    class Meta:
+        model = FileSeeder
+        fields = (
+            "node_id",
+            "node_name",
+            "lan_ip",
+            "tcp_port",
+            "availability",
+            "bitfield",
+            "pieces_available",
+            "last_announced",
+        )
+
+
+class SeederAnnounceSerializer(serializers.Serializer):
+    resource_id = serializers.UUIDField()
+    node_id = serializers.UUIDField()
+    bitfield = serializers.CharField()
+    pieces_available = serializers.IntegerField(min_value=1)
+
+    def validate(self, attrs):
+        request = self.context["request"]
+        resource = get_object_or_404(
+            AcademicResource,
+            id=attrs["resource_id"],
+            is_published=True,
+        )
+        node = get_object_or_404(
+            PeerNodeIdentity,
+            id=attrs["node_id"],
+            user=request.user,
+        )
+
+        try:
+            bitfield = base64.b64decode(attrs["bitfield"], validate=True)
+        except (ValueError, binascii.Error) as exc:
+            raise serializers.ValidationError(
+                {"bitfield": "Le bitfield doit être encodé en base64 valide."}
+            ) from exc
+
+        expected_length = (resource.piece_count + 7) // 8
+        if len(bitfield) != expected_length:
+            raise serializers.ValidationError(
+                {"bitfield": "La taille du bitfield ne correspond pas au manifeste."}
+            )
+        if resource.piece_count % 8 and bitfield:
+            unused_mask = 0xFF << (resource.piece_count % 8) & 0xFF
+            if bitfield[-1] & unused_mask:
+                raise serializers.ValidationError(
+                    {"bitfield": "Le bitfield contient des blocs hors manifeste."}
+                )
+        actual_count = sum(byte.bit_count() for byte in bitfield)
+        if attrs["pieces_available"] != actual_count:
+            raise serializers.ValidationError(
+                {"pieces_available": "Le nombre annoncé ne correspond pas au bitfield."}
+            )
+
+        attrs["resource"] = resource
+        attrs["node"] = node
+        attrs["availability"] = (
+            FileSeeder.Availability.FULL
+            if actual_count == resource.piece_count
+            else FileSeeder.Availability.PARTIAL
+        )
+        return attrs
+
+    def create(self, validated_data):
+        resource = validated_data.pop("resource")
+        node = validated_data.pop("node")
+        seeder, _ = FileSeeder.objects.update_or_create(
+            resource=resource,
+            node=node,
+            defaults=validated_data,
+        )
+        return seeder

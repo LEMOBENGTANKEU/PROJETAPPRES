@@ -3,10 +3,9 @@ import inspect
 import logging
 from dataclasses import dataclass
 
-from .errors import IntegrityError, P2PError, ProtocolError, TransferError
+from .errors import P2PError, TransferError
 from .manifest import FileManifest
 from .protocol import PeerEndpoint, download_piece, get_peer_pieces
-from .storage import PieceStore
 
 logger = logging.getLogger(__name__)
 

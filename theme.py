@@ -59,6 +59,8 @@ CATEGORY_COLORS = {
     "Tutorials (TD)": ("#CCFBF1", "#0F766E"),
     "Practical Works (TP)": ("#E0E7FF", "#4338CA"),
     "Past Exams": ("#FEF3C7", "#B45309"),
+    "Projects": ("#E0E7FF", "#4338CA"),
+    "Recordings": ("#FCE7F3", "#BE185D"),
     "Summary": ("#F1F5F9", "#475569"),
 }
 

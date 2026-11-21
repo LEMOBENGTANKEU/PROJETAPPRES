@@ -5,11 +5,16 @@ Execution :
     flet run main.py        rechargement a chaud (hot reload)
 """
 
+import logging
+import os
+
 import flet as ft
 import theme
 from compat import pad_all, run_app
 from components.sidebar import build_sidebar
 from components.topbar import build_topbar
+from services.backend_client import BackendApiError, BackendClient
+from services.sharing_service import SharingService
 from views.courses_view import build_courses_view
 from views.placeholder_view import build_placeholder_view
 from views.settings_view import build_settings_view
@@ -18,9 +23,22 @@ PLACEHOLDERS = {
     "chat": ("Discussion P2P", ft.Icons.CHAT_BUBBLE_OUTLINE, "La messagerie locale arrive bientot."),
     "calls": ("Appels P2P locaux", ft.Icons.PHONE_IN_TALK_OUTLINED, "La telephonie sur le LAN arrive bientot."),
 }
+logger = logging.getLogger(__name__)
 
 
 def main(page: ft.Page):
+    backend_client = BackendClient(
+        os.environ.get("CAMPUSSHARE_API_URL", "http://127.0.0.1:8000")
+    )
+    sharing_service = SharingService(backend_client)
+
+    async def on_close(_e):
+        try:
+            await sharing_service.close()
+        except (BackendApiError, OSError):
+            logger.exception("Impossible d'arrêter proprement le partage P2P.")
+
+    page.on_close = on_close
     page.title = theme.APP_NAME
     page.padding = 0
     page.spacing = 0
@@ -44,9 +62,18 @@ def main(page: ft.Page):
 
     def build_content():
         if state["view"] == "courses":
-            return build_courses_view(page)
+            return build_courses_view(
+                page,
+                backend_client,
+                on_open_settings=lambda: navigate("settings"),
+                sharing_service=sharing_service,
+            )
         if state["view"] == "settings":
-            return build_settings_view(page)
+            return build_settings_view(
+                page,
+                backend_client,
+                on_connected=lambda: navigate("courses"),
+            )
         title, icon, subtitle = PLACEHOLDERS[state["view"]]
         return build_placeholder_view(title, icon, subtitle)
 

@@ -22,7 +22,13 @@ def _chip(label, active, on_click):
     )
 
 
-def build_filter_bar(active_category, on_select, active_level=None, on_level_change=None):
+def build_filter_bar(
+    active_category,
+    on_select,
+    active_level=None,
+    on_level_change=None,
+    show_level=True,
+):
     chips = ft.Row(
         wrap=True,
         spacing=8,
@@ -49,7 +55,11 @@ def build_filter_bar(active_category, on_select, active_level=None, on_level_cha
     if on_level_change:
         level.on_change = on_level_change
 
+    controls = [chips]
+    if show_level:
+        controls.extend([ft.Container(width=24), level])
+
     return ft.Row(
         vertical_alignment=ft.CrossAxisAlignment.START,
-        controls=[chips, ft.Container(width=24), level],
+        controls=controls,
     )

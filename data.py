@@ -10,6 +10,8 @@ CATEGORIES = [
     "Tutorials (TD)",
     "Practical Works (TP)",
     "Past Exams",
+    "Projects",
+    "Recordings",
     "Summary",
 ]
 
@@ -19,6 +21,8 @@ FILTER_TO_CATEGORY = {
     "Tutorials (TD)": "Tutorials (TD)",
     "Practical Works (TP)": "Practical Works (TP)",
     "Past Exams": "Past Exams",
+    "Projects": "Projects",
+    "Recordings": "Recordings",
     "Summary": "Summary",
 }
 

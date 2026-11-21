@@ -11,7 +11,6 @@ from pathlib import Path
 
 from .errors import IntegrityError, ProtocolError
 from .manifest import FileManifest
-from .storage import PieceStore
 
 logger = logging.getLogger(__name__)
 
@@ -104,26 +103,55 @@ def _decode_bitfield(encoded, piece_count):
 
 class PeerBlockServer:
     def __init__(self, source_path, manifest, available_pieces=None):
-        self.source_path = Path(source_path)
-        self.manifest = manifest
         self._server = None
         self._slots = asyncio.Semaphore(MAX_CONCURRENT_PEERS)
-        if self.source_path.stat().st_size != manifest.file_size:
+        self.source_path = Path(source_path)
+        self.manifest = manifest
+        self._resources = {}
+        self.add_resource(source_path, manifest, available_pieces)
+
+    def add_resource(self, source_path, manifest, available_pieces=None):
+        if not isinstance(manifest, FileManifest):
+            raise TypeError("manifest doit être un FileManifest.")
+        source_path = Path(source_path)
+        if source_path.stat().st_size != manifest.file_size:
             raise ValueError("Le fichier source ne correspond pas à la taille du manifeste.")
+        if manifest.root_hash in self._resources:
+            raise ValueError("Cette ressource est déjà partagée par le serveur.")
         if available_pieces is None:
             available_pieces = range(manifest.piece_count)
-        self.update_availability(available_pieces)
-
-    def update_availability(self, available_pieces):
         available = set(available_pieces)
         if any(
             not isinstance(index, int)
             or isinstance(index, bool)
-            or not 0 <= index < self.manifest.piece_count
+            or not 0 <= index < manifest.piece_count
             for index in available
         ):
             raise ValueError("La disponibilité contient un index de bloc invalide.")
-        self._available_pieces = frozenset(available)
+        self._resources[manifest.root_hash] = {
+            "source_path": source_path,
+            "manifest": manifest,
+            "available_pieces": frozenset(available),
+        }
+
+    def remove_resource(self, root_hash):
+        self._resources.pop(root_hash, None)
+
+    def update_availability(self, available_pieces, root_hash=None):
+        root_hash = root_hash or self.manifest.root_hash
+        resource = self._resources.get(root_hash)
+        if resource is None:
+            raise ValueError("La ressource n'est pas enregistrée sur ce serveur.")
+        manifest = resource["manifest"]
+        available = set(available_pieces)
+        if any(
+            not isinstance(index, int)
+            or isinstance(index, bool)
+            or not 0 <= index < manifest.piece_count
+            for index in available
+        ):
+            raise ValueError("La disponibilité contient un index de bloc invalide.")
+        resource["available_pieces"] = frozenset(available)
 
     async def start(self, host, port):
         if self._server is not None:
@@ -187,19 +215,23 @@ class PeerBlockServer:
         ):
             await _send_json(writer, {"type": "ERROR", "message": "Version de protocole invalide."})
             return
-        if hello.get("root_hash") != self.manifest.root_hash:
+        resource = self._resources.get(hello.get("root_hash"))
+        if resource is None:
             await _send_json(writer, {"type": "ERROR", "message": "Ressource inconnue."})
             return
 
+        manifest = resource["manifest"]
+        source_path = resource["source_path"]
+        available_pieces = resource["available_pieces"]
         await _send_json(
             writer,
             {
                 "type": "BITFIELD",
-                "root_hash": self.manifest.root_hash,
-                "piece_count": self.manifest.piece_count,
+                "root_hash": manifest.root_hash,
+                "piece_count": manifest.piece_count,
                 "bitfield": _make_bitfield(
-                    self.manifest.piece_count,
-                    self._available_pieces,
+                    manifest.piece_count,
+                    available_pieces,
                 ),
             },
         )
@@ -211,22 +243,22 @@ class PeerBlockServer:
                 request.get("type") != "REQUEST"
                 or not isinstance(index, int)
                 or isinstance(index, bool)
-                or not 0 <= index < self.manifest.piece_count
+                or not 0 <= index < manifest.piece_count
             ):
                 await _send_json(writer, {"type": "ERROR", "message": "Demande de bloc invalide."})
                 return
-            if index not in self._available_pieces:
+            if index not in available_pieces:
                 await _send_json(writer, {"type": "ERROR", "message": "Bloc indisponible."})
                 return
 
-            expected_length = self.manifest.piece_length(index)
-            with self.source_path.open("rb") as source:
-                source.seek(index * self.manifest.piece_size)
+            expected_length = manifest.piece_length(index)
+            with source_path.open("rb") as source:
+                source.seek(index * manifest.piece_size)
                 data = source.read(expected_length)
             if (
                 len(data) != expected_length
                 or hashlib.sha256(data).hexdigest()
-                != self.manifest.piece_hashes[index]
+                != manifest.piece_hashes[index]
             ):
                 await _send_json(writer, {"type": "ERROR", "message": "Le bloc source est corrompu."})
                 return

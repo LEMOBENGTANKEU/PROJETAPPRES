@@ -44,7 +44,12 @@ def _right_badge(resource):
     )
 
 
-def build_resource_card(page: ft.Page, resource: dict, width: int = theme.CARD_WIDTH) -> ft.Control:
+def build_resource_card(
+    page: ft.Page,
+    resource: dict,
+    width: int = theme.CARD_WIDTH,
+    on_download=None,
+) -> ft.Control:
     bg, fg = theme.CATEGORY_COLORS.get(resource["category"], ("#F1F5F9", "#475569"))
 
     is_copy = resource.get("action") == "copy"
@@ -55,13 +60,52 @@ def build_resource_card(page: ft.Page, resource: dict, width: int = theme.CARD_W
         action_icon, action_label = ft.Icons.DOWNLOAD, "Telecharger (LAN)"
         action_bg, action_fg = theme.PRIMARY, "#FFFFFF"
 
-    def on_action(e):
+    async def on_action(_e):
         if is_copy:
             ok = clipboard_write(resource["title"])
             notify(page, f"Copie : {resource['title']}" if ok else "Presse-papiers indisponible",
                    kind="success" if ok else "warning")
+        elif on_download is not None:
+            action_label_control.value = "Téléchargement..."
+            action_container.disabled = True
+            action_container.update()
+
+            def on_progress(progress):
+                action_label_control.value = (
+                    f"Blocs {progress.completed_pieces}/{progress.total_pieces}"
+                )
+                action_container.update()
+
+            try:
+                await on_download(resource["backend_resource"], on_progress)
+            finally:
+                action_label_control.value = action_label
+                action_container.disabled = False
+                action_container.update()
         else:
             notify(page, f"Transfert LAN : {resource['title']}...", kind="info")
+
+    action_label_control = ft.Text(
+        action_label,
+        size=10.5,
+        weight=ft.FontWeight.BOLD,
+        color=action_fg,
+    )
+    action_container = ft.Container(
+        bgcolor=action_bg,
+        border_radius=8,
+        padding=pad_sym(h=12, v=10),
+        ink=True,
+        on_click=on_action,
+        content=ft.Row(
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=7,
+            controls=[
+                ft.Icon(action_icon, size=15, color=action_fg),
+                action_label_control,
+            ],
+        ),
+    )
 
     card = ft.Container(
         width=width,
@@ -96,21 +140,7 @@ def build_resource_card(page: ft.Page, resource: dict, width: int = theme.CARD_W
                     ),
                     padding=pad_sym(v=4),
                 ),
-                ft.Container(
-                    bgcolor=action_bg,
-                    border_radius=8,
-                    padding=pad_sym(h=12, v=10),
-                    ink=True,
-                    on_click=on_action,
-                    content=ft.Row(
-                        alignment=ft.MainAxisAlignment.CENTER,
-                        spacing=7,
-                        controls=[
-                            ft.Icon(action_icon, size=15, color=action_fg),
-                            ft.Text(action_label, size=10.5, weight=ft.FontWeight.BOLD, color=action_fg),
-                        ],
-                    ),
-                ),
+                action_container,
             ],
         ),
     )

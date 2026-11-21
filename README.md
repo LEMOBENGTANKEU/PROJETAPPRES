@@ -220,6 +220,8 @@ l'empreinte racine est le SHA-256 de la concaténation de leurs octets décodés
 | `PATCH` | `/api/v1/repository/resources/{id}/` | Modifier sa ressource (enseignant propriétaire) ou une ressource (administrateur). |
 | `DELETE` | `/api/v1/repository/resources/{id}/` | Retirer sa ressource ou une ressource (administrateur). |
 | `GET` | `/api/v1/repository/resources/{id}/manifest/` | Récupérer les tailles de blocs et empreintes. |
+| `GET` | `/api/v1/repository/resources/{id}/seeders/` | Pairs actifs qui annoncent des blocs de cette ressource. |
+| `POST` | `/api/v1/repository/seeders/announce/` | Annoncer ou mettre à jour le bitfield d'un nœud possédé. |
 
 ### API du registre réseau
 
@@ -239,17 +241,28 @@ d'expiration du heartbeat est de 90 secondes par défaut et peut être réglé a
 
 ### 2. Client Flet
 
-Dans un second terminal :
+L'interface Flet se lance depuis la racine du dépôt :
 
 ```bash
-cd frontend
-
-python -m venv venv
-source venv/bin/activate          # Windows : venv\Scripts\activate
-
-pip install flet httpx zeroconf aiortc
+python -m pip install -r requirements.txt
 python main.py
 ```
+
+Dans **Paramètres**, saisir l'adresse LAN du backend, puis se connecter avec
+son compte. Le catalogue réel se charge depuis l'écran **Cours & TP**. Le
+bouton de téléchargement demande les seeders au backend puis transfère les
+blocs directement en TCP; les fichiers sont enregistrés dans
+`~/CampusShare/downloads` et le cache reprenable dans `~/CampusShare/cache`.
+Pour qu'une ressource soit téléchargeable, au moins un appareil doit être
+enregistré et annoncer ses blocs via l'API du registre et l'endpoint
+`/api/v1/repository/seeders/announce/`.
+
+Après un téléchargement terminé, CampusShare demande si tu veux partager cette
+ressource. Le partage n'est activé qu'après confirmation et s'arrête à la
+fermeture de l'application; le nœud local est alors désenregistré. L'adresse
+IPv4 privée est détectée automatiquement. Si la détection choisit la mauvaise
+interface ou échoue, définis `CAMPUSSHARE_NODE_IP` avec l'adresse LAN de cet
+ordinateur avant de lancer `main.py`.
 
 ### Moteur P2P par blocs
 
@@ -259,12 +272,9 @@ vérifie chaque bloc reçu et conserve les blocs validés dans un fichier `.part
 avec un journal atomique de reprise. Les fichiers finaux sont renommés après
 validation complète. L'ordonnanceur interroge le bitfield de chaque pair,
 priorise les blocs rares, répartit les requêtes avec une limite par pair et
-réessaie un bloc auprès d'un autre seeder après un échec.
-
-Le moteur reste un service Python indépendant : l'écran Flet de démonstration
-contient encore des ressources fictives, sans manifestes ni adresses de pairs;
-le branchement du bouton de téléchargement attend donc la connexion réelle au
-catalogue et au registre réseau.
+réessaie un bloc auprès d'un autre seeder après un échec. Le serveur TCP local
+peut distribuer plusieurs ressources sur le même port; seuls les fichiers
+téléchargés et explicitement acceptés sont annoncés aux autres appareils.
 
 Exécuter les tests du moteur depuis la racine du dépôt :
 
