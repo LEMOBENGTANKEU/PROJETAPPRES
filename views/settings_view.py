@@ -1,14 +1,19 @@
 """Parametres de l'application : apparence, reseau, a propos."""
+import logging
+
 import flet as ft
 import theme
 from compat import pad_all, notify
 from services.backend_client import BackendApiError
+
+logger = logging.getLogger(__name__)
 
 
 def build_settings_view(
     page: ft.Page,
     backend_client=None,
     on_connected=None,
+    sharing_service=None,
 ) -> ft.Control:
     def on_theme_change(e):
         page.theme_mode = ft.ThemeMode.DARK if e.control.value else ft.ThemeMode.LIGHT
@@ -64,6 +69,22 @@ def build_settings_view(
             connection_status.color = theme.SUCCESS
             password.value = ""
             notify(page, "Connexion réussie au serveur CampusShare.", kind="success")
+            if sharing_service is not None:
+                try:
+                    restored = await sharing_service.restore_consented_shares()
+                    if restored:
+                        notify(
+                            page,
+                            f"{restored} ressource(s) partagée(s) automatiquement.",
+                            kind="success",
+                        )
+                except (BackendApiError, OSError, ValueError, TypeError, KeyError) as exc:
+                    logger.exception("Impossible de restaurer les partages consentis.")
+                    notify(
+                        page,
+                        f"Partage automatique indisponible : {exc}",
+                        kind="warning",
+                    )
             if on_connected is not None:
                 on_connected()
         finally:

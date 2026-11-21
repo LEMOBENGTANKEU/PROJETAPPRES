@@ -73,6 +73,7 @@ def main(page: ft.Page):
                 page,
                 backend_client,
                 on_connected=lambda: navigate("courses"),
+                sharing_service=sharing_service,
             )
         title, icon, subtitle = PLACEHOLDERS[state["view"]]
         return build_placeholder_view(title, icon, subtitle)

@@ -258,11 +258,15 @@ enregistré et annoncer ses blocs via l'API du registre et l'endpoint
 `/api/v1/repository/seeders/announce/`.
 
 Après un téléchargement terminé, CampusShare demande si tu veux partager cette
-ressource. Le partage n'est activé qu'après confirmation et s'arrête à la
-fermeture de l'application; le nœud local est alors désenregistré. L'adresse
-IPv4 privée est détectée automatiquement. Si la détection choisit la mauvaise
-interface ou échoue, définis `CAMPUSSHARE_NODE_IP` avec l'adresse LAN de cet
-ordinateur avant de lancer `main.py`.
+ressource. Le partage n'est activé qu'après confirmation; le consentement est
+mémorisé localement dans `~/CampusShare/state.json` pour permettre de
+ré-annoncer automatiquement les fichiers complets déjà présents dans le cache
+lors des connexions suivantes. Le serveur TCP local et les annonces/heartbeats
+s'arrêtent à la fermeture de l'application et le nœud local est désenregistré.
+
+L'adresse IPv4 privée et l'identité du nœud sont gérées automatiquement. Si la
+détection choisit la mauvaise interface ou échoue, définis `CAMPUSSHARE_NODE_IP`
+avec l'adresse LAN de cet ordinateur avant de lancer `main.py`.
 
 ### Moteur P2P par blocs
 
