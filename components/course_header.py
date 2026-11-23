@@ -1,12 +1,20 @@
 """En-tete de l'ecran cours : titre, badge de statistiques, bouton de partage."""
 import flet as ft
 import theme
-from compat import pad_sym, pad_all, border_all, notify
+from compat import pad_sym, pad_all, border_all
+from views.publish_dialog import open_publish_dialog
 
 
-def build_course_header(page: ft.Page) -> ft.Control:
+def build_course_header(page: ft.Page, backend_client=None, sharing_service=None) -> ft.Control:
     def on_share(e):
-        notify(page, "Partage de document sur le LAN...", kind="info")
+        if hasattr(page, "run_task"):
+            page.run_task(open_publish_dialog, page, backend_client, sharing_service)
+        else:
+            import asyncio
+
+            asyncio.get_running_loop().create_task(
+                open_publish_dialog(page, backend_client, sharing_service)
+            )
 
     docs_badge = ft.Container(
         bgcolor="#EFF6FF",

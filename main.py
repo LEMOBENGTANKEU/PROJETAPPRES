@@ -15,14 +15,12 @@ from components.sidebar import build_sidebar
 from components.topbar import build_topbar
 from services.backend_client import BackendApiError, BackendClient
 from services.sharing_service import SharingService
+from views.calls_view import build_calls_view
+from views.chat_view import build_chat_view
 from views.courses_view import build_courses_view
 from views.placeholder_view import build_placeholder_view
 from views.settings_view import build_settings_view
 
-PLACEHOLDERS = {
-    "chat": ("Discussion P2P", ft.Icons.CHAT_BUBBLE_OUTLINE, "La messagerie locale arrive bientot."),
-    "calls": ("Appels P2P locaux", ft.Icons.PHONE_IN_TALK_OUTLINED, "La telephonie sur le LAN arrive bientot."),
-}
 logger = logging.getLogger(__name__)
 
 
@@ -33,6 +31,12 @@ def main(page: ft.Page):
     sharing_service = SharingService(backend_client)
 
     async def on_close(_e):
+        dispose = state.get("dispose")
+        if callable(dispose):
+            try:
+                dispose()
+            except Exception:
+                logger.exception("Impossible de fermer la vue active.")
         try:
             await sharing_service.close()
         except (BackendApiError, OSError):
@@ -54,13 +58,21 @@ def main(page: ft.Page):
     page.window.resizable = True
     page.window.maximizable = True
 
-    state = {"view": "courses"}
+    state = {"view": "courses", "dispose": None}
 
     def navigate(key: str):
         state["view"] = key
         render()
 
     def build_content():
+        previous_dispose = state.get("dispose")
+        if callable(previous_dispose):
+            try:
+                previous_dispose()
+            except Exception:
+                logger.exception("Erreur lors du nettoyage de la vue précédente.")
+        state["dispose"] = None
+
         if state["view"] == "courses":
             return build_courses_view(
                 page,
@@ -68,6 +80,14 @@ def main(page: ft.Page):
                 on_open_settings=lambda: navigate("settings"),
                 sharing_service=sharing_service,
             )
+        if state["view"] == "chat":
+            control, dispose = build_chat_view(page, backend_client)
+            state["dispose"] = dispose
+            return control
+        if state["view"] == "calls":
+            control, dispose = build_calls_view(page, backend_client)
+            state["dispose"] = dispose
+            return control
         if state["view"] == "settings":
             return build_settings_view(
                 page,
@@ -75,8 +95,11 @@ def main(page: ft.Page):
                 on_connected=lambda: navigate("courses"),
                 sharing_service=sharing_service,
             )
-        title, icon, subtitle = PLACEHOLDERS[state["view"]]
-        return build_placeholder_view(title, icon, subtitle)
+        return build_placeholder_view(
+            "Section indisponible",
+            ft.Icons.INFO_OUTLINE,
+            "Cette section n'est pas disponible.",
+        )
 
     def render():
         page.controls.clear()
@@ -85,7 +108,13 @@ def main(page: ft.Page):
                 expand=True,
                 spacing=0,
                 controls=[
-                    build_sidebar(page, state["view"], navigate),
+                    build_sidebar(
+                        page,
+                        state["view"],
+                        navigate,
+                        backend_client=backend_client,
+                        sharing_service=sharing_service,
+                    ),
                     ft.Container(
                         expand=True,
                         bgcolor=theme.BG_APP,

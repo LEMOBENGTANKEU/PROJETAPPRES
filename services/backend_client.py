@@ -135,6 +135,54 @@ class BackendClient:
             True,
         )
 
+    async def list_chat_messages(self, ue_code, after=None):
+        params = {}
+        if after is not None:
+            params["after"] = str(after)
+        url = f"{self.base_url}/api/v1/chat/{ue_code}/messages/"
+        if params:
+            url += "?" + urlencode(params)
+        return await self._fetch_paginated(url)
+
+    async def send_chat_message(self, ue_code, content):
+        return await asyncio.to_thread(
+            self._request_sync,
+            "POST",
+            f"{self.base_url}/api/v1/chat/{ue_code}/messages/",
+            {"content": content},
+            True,
+            True,
+        )
+
+    async def list_signaling_messages(self, room_id, after=None):
+        params = {}
+        if after is not None:
+            params["after"] = str(after)
+        url = f"{self.base_url}/api/v1/signaling/{room_id}/messages/"
+        if params:
+            url += "?" + urlencode(params)
+        return await self._fetch_paginated(url)
+
+    async def send_signaling_message(self, room_id, message_type, payload):
+        return await asyncio.to_thread(
+            self._request_sync,
+            "POST",
+            f"{self.base_url}/api/v1/signaling/{room_id}/messages/",
+            {"message_type": message_type, "payload": payload},
+            True,
+            True,
+        )
+
+    async def create_resource(self, payload):
+        return await asyncio.to_thread(
+            self._request_sync,
+            "POST",
+            self.base_url + "/api/v1/repository/resources/",
+            payload,
+            True,
+            True,
+        )
+
     async def _fetch_paginated(self, url):
         results = []
         expected_origin = self._origin(self.base_url)

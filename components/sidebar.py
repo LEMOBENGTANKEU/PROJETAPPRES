@@ -40,7 +40,7 @@ def _help_item() -> ft.Control:
     )
 
 
-def build_sidebar(page: ft.Page, active: str, on_navigate) -> ft.Control:
+def build_sidebar(page: ft.Page, active: str, on_navigate, backend_client=None, sharing_service=None) -> ft.Control:
     return ft.Container(
         width=theme.SIDEBAR_WIDTH,
         bgcolor=theme.BG_SIDEBAR,
@@ -51,7 +51,7 @@ def build_sidebar(page: ft.Page, active: str, on_navigate) -> ft.Control:
             controls=[
                 build_logo(),
                 ft.Container(height=8),
-                build_share_file_button(page),
+                build_share_file_button(page, backend_client, sharing_service),
                 ft.Container(height=8),
                 build_chat_button(active == "chat", on_navigate),
                 build_courses_button(active == "courses", on_navigate),

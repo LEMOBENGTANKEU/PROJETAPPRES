@@ -62,6 +62,7 @@ class SharingServiceTests(unittest.IsolatedAsyncioTestCase):
             state_store=self.state_store,
             listen_ip="127.0.0.1",
             heartbeat_interval=3600,
+            enable_discovery=False,
         )
 
     async def asyncTearDown(self):

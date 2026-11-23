@@ -121,6 +121,34 @@ def build_settings_view(
         )
         page.open(dlg)
 
+    peers_text = ft.Text(
+        "La découverte UDP démarre lorsque le partage P2P est actif.",
+        size=12,
+        color=theme.TEXT_MUTED,
+        selectable=True,
+    )
+
+    def refresh_peers(_e=None):
+        if sharing_service is None or not hasattr(sharing_service, "discovered_peers"):
+            peers_text.value = "Service de découverte indisponible."
+            peers_text.color = theme.TEXT_MUTED
+        else:
+            peers = sharing_service.discovered_peers()
+            if peers:
+                lines = []
+                for peer in peers:
+                    lines.append(
+                        f"- {peer.get('node_name', '?')} @ {peer.get('ip', '?')}:{peer.get('service_port', '?')}"
+                    )
+                peers_text.value = "\n".join(lines)
+                peers_text.color = theme.SUCCESS
+            else:
+                peers_text.value = (
+                    "Aucun pair découvert pour le moment. Lancez un partage ou vérifiez le réseau LAN/UDP."
+                )
+                peers_text.color = theme.TEXT_MUTED
+        page.update()
+
     return ft.Column(
         expand=True,
         scroll=ft.ScrollMode.AUTO,
@@ -158,6 +186,35 @@ def build_settings_view(
                             controls=[connect_button, connection_status],
                             vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         ),
+                    ],
+                ),
+            ),
+            ft.Container(
+                bgcolor=theme.BG_CARD,
+                border_radius=theme.CARD_RADIUS,
+                padding=pad_all(20),
+                content=ft.Column(
+                    spacing=12,
+                    controls=[
+                        ft.Row(
+                            spacing=10,
+                            controls=[
+                                ft.Icon(ft.Icons.WIFI_TETHERING, color=theme.TEXT_MUTED, size=20),
+                                ft.Text(
+                                    "Découverte des pairs (UDP LAN)",
+                                    size=15,
+                                    weight=ft.FontWeight.W_700,
+                                    color=theme.TEXT,
+                                ),
+                            ],
+                        ),
+                        ft.Text(
+                            "Affiche les pairs CampusShare détectés par beacon UDP sur le réseau local.",
+                            size=12,
+                            color=theme.TEXT_MUTED,
+                        ),
+                        ft.OutlinedButton("Actualiser les pairs", icon=ft.Icons.REFRESH, on_click=refresh_peers),
+                        peers_text,
                     ],
                 ),
             ),

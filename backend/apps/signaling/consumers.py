@@ -1,8 +1,12 @@
-﻿from channels.generic.websocket import AsyncWebsocketConsumer
+﻿import json
+
+from channels.db import database_sync_to_async
+from channels.generic.websocket import AsyncWebsocketConsumer
 from django.contrib.auth.models import AnonymousUser
-import json
 
 from apps.authentication.ws_auth import authenticate_scope
+
+from .models import SignalingMessage
 
 
 class SignalingConsumer(AsyncWebsocketConsumer):
@@ -17,13 +21,17 @@ class SignalingConsumer(AsyncWebsocketConsumer):
         self.group_name = f"signaling_{self.room_id}"
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
-        await self.send(text_data=json.dumps({
-            "type": "presence",
-            "event": "joined",
-            "room_id": self.room_id,
-            "user_id": user.id,
-            "username": user.username,
-        }))
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "presence",
+                    "event": "joined",
+                    "room_id": self.room_id,
+                    "user_id": user.id,
+                    "username": user.username,
+                }
+            )
+        )
 
     async def disconnect(self, close_code):
         group_name = getattr(self, "group_name", None)
@@ -40,21 +48,42 @@ class SignalingConsumer(AsyncWebsocketConsumer):
             return
 
         user = self.scope.get("user")
+        message_type = str(payload.get("type", "signal"))
+        message_payload = payload.get("payload", payload)
+        if not isinstance(message_payload, dict):
+            message_payload = {"value": message_payload}
+
+        saved = await self._create_message(
+            user=user,
+            room_id=self.room_id,
+            message_type=message_type,
+            payload=message_payload,
+        )
         event = {
             "type": "signaling.message",
             "sender_channel": self.channel_name,
             "message": {
-                "type": payload.get("type", "signal"),
-                "room_id": getattr(self, "room_id", None),
-                "from_user_id": getattr(user, "id", None),
-                "from_username": getattr(user, "username", None),
-                "payload": payload.get("payload", payload),
+                "id": saved.id,
+                "type": saved.message_type,
+                "room_id": saved.room_id,
+                "sender": user.id,
+                "sender_username": user.username,
+                "payload": saved.payload,
+                "created_at": saved.created_at.isoformat(),
             },
         }
         await self.channel_layer.group_send(self.group_name, event)
 
     async def signaling_message(self, event):
-        # Avoid echoing the sender's own message back to them.
         if event.get("sender_channel") == self.channel_name:
             return
         await self.send(text_data=json.dumps(event["message"]))
+
+    @database_sync_to_async
+    def _create_message(self, user, room_id, message_type, payload):
+        return SignalingMessage.objects.create(
+            sender=user,
+            room_id=room_id,
+            message_type=message_type,
+            payload=payload,
+        )

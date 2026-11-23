@@ -75,51 +75,31 @@ Le backend indexe et signale. Les fichiers et les flux média passent **directem
 
 ---
 
-## Structure du dépôt
+## Structure du d?p?t
 
-Séparation stricte : Django pour l'index et le signalement, Flet pour l'interface et le moteur P2P.
+Le backend Django fournit l'indexation, l'authentification, le registre r?seau et la signalisation. Le client Flet, les services et les moteurs P2P/d?couverte sont ? la racine du d?p?t (l'arborescence `frontend/` d?crite historiquement n'est pas celle de l'impl?mentation actuelle).
 
 ```text
 campus-share/
-│
-├── backend/                        # Serveur Django (API et signalement WebRTC)
-│   ├── manage.py
-│   ├── config/                     # Paramètres, ASGI/WSGI, routage
-│   │   ├── settings.py
-│   │   ├── asgi.py
-│   │   └── urls.py
-│   ├── apps/
-│   │   ├── authentication/         # Utilisateurs et badges (STU-XXXX)
-│   │   ├── network_registry/       # Annuaire des nœuds actifs (IP / port)
-│   │   ├── repository/             # Index des fichiers (hash SHA-256, seeders)
-│   │   ├── signaling/              # Consumer WebSocket (négociation WebRTC)
-│   │   └── chat/                   # Historique des messages par UE
-│   └── requirements.txt
-│
-├── frontend/                       # Client desktop / mobile (Python Flet)
-│   ├── main.py                     # Point d'entrée
-│   ├── config.py                   # IP du serveur local et ports
-│   ├── core/                       # Moteurs réseau et I/O
-│   │   ├── p2p_socket_engine.py    # TCP : transfert de blocs
-│   │   ├── storage_manager.py      # Cache anti-coupure et SHA-256
-│   │   ├── zeroconf_scanner.py     # Découverte locale (UDP)
-│   │   └── webrtc_engine.py        # Flux audio / vidéo P2P
-│   ├── services/                   # Clients du backend
-│   │   ├── api_client.py           # HTTP / REST
-│   │   ├── websocket_client.py     # Signalisation WebSocket
-│   │   └── auth_service.py         # JWT
-│   ├── state/
-│   │   ├── app_state.py            # IP, débit, mode anti-lag
-│   │   └── network_state.py        # Pairs et salons actifs
-│   └── views/
-│       ├── components/             # Sidebar, en-tête réseau, cartes de cours
-│       ├── chat_view.py
-│       ├── courses_view.py
-│       ├── calls_view.py           # Visioconférence et partage d'écran
-│       └── settings_view.py
-│
-├── docker-compose.yml
-└── README.md
+??? backend/                     # Django + DRF + Channels (API, registre, chat, signalisation)
+?   ??? manage.py
+?   ??? config/                  # settings, urls, asgi/wsgi, routing WebSocket
+?   ??? apps/
+?   ?   ??? authentication/      # Comptes, r?les, JWT, auth WebSocket
+?   ?   ??? repository/          # Catalogue, manifestes SHA-256, seeders
+?   ?   ??? network_registry/    # N?uds LAN, heartbeat, pr?sence
+?   ?   ??? chat/                # Messages par UE (REST + WebSocket)
+?   ?   ??? signaling/           # Signalisation salles/appels (REST + WebSocket)
+?   ??? requirements.txt
+??? core/
+?   ??? p2p/                     # Manifeste, stockage reprenable, protocole TCP, scheduler
+?   ??? discovery/               # D?couverte UDP des pairs (beacons LAN)
+??? services/                    # Client backend, t?l?chargement, partage, ?tat local
+??? views/                       # Vues Flet (cours, chat, appels/signalisation, param?tres)
+??? components/                  # Composants UI Flet
+??? tests/                       # Tests moteur/services/UI c?t? racine
+??? main.py                      # Point d'entr?e client Flet
+??? README.md
 ```
 
 ---
@@ -142,21 +122,24 @@ campus-share/
 
 ## API REST et WebSockets
 
-### REST (Django REST Framework)
+### REST (impl?ment? / principaux endpoints)
 
-| Méthode | Endpoint | Description |
+| M?thode | Endpoint | Description |
 | --- | --- | --- |
-| `POST` | `/api/v1/auth/login/` | Connexion et obtention du token JWT |
-| `GET` | `/api/v1/network/peers/` | Nœuds actifs sur le sous-réseau de l'amphi |
-| `GET` | `/api/v1/resources/` | Recherche de cours (CM, TD, TP, examens) |
-| `POST` | `/api/v1/resources/announce/` | Déclarer qu'on possède un fichier (devenir seeder) |
+| `POST` | `/api/v1/auth/register/`, `/login/`, `/refresh/`, `GET /me/` | Authentification JWT |
+| `GET/POST` | `/api/v1/repository/resources/` et routes associ?es | Catalogue, manifestes, seeders, annonce de blocs |
+| `GET/POST` | `/api/v1/network/nodes/`, `/peers/`, heartbeat/delete | Registre des n?uds LAN |
+| `GET/POST` | `/api/v1/chat/<ue_code>/messages/` | Historique et envoi des messages de discussion par UE |
+| `GET/POST` | `/api/v1/signaling/<room_id>/messages/` | Messages de signalisation par salle (polling/REST) |
 
-### WebSockets
+### WebSockets (Channels)
 
 | Route | Description |
 | --- | --- |
-| `ws://<server_ip>:8000/ws/chat/<ue_code>/` | Discussion texte en temps réel, par UE |
-| `ws://<server_ip>:8000/ws/signaling/<room_id>/` | Signalement WebRTC (vidéo et partage d'écran) |
+| `ws://<server_ip>:8000/ws/chat/<ue_code>/` | Discussion temps r?el par UE (auth JWT via `?token=`) |
+| `ws://<server_ip>:8000/ws/signaling/<room_id>/` | Relais/persistance des messages de signalisation (SDP/ICE, auth JWT via `?token=`) |
+
+> Le client Flet actuel int?gre le chat et la signalisation principalement via REST/polling; le transport m?dia WebRTC (audio/vid?o/partage d'?cran) n'est pas finalis? c?t? client desktop.
 
 ---
 
@@ -291,15 +274,17 @@ Le pair serveur doit être explicitement lié à son adresse LAN, par exemple
 
 ---
 
-## Feuille de route
+## Feuille de route (?tat)
 
-Durée prévue : **1,5 semaine**.
+- [x] Architecture, base Django/Flet, auth JWT, catalogue et registre r?seau
+- [x] Moteur P2P TCP par blocs, manifeste SHA-256, cache/reprise, scheduler multi-pairs
+- [x] Int?gration client (catalogue/t?l?chargement/partage opt-in), persistance consentement, auto-reshare
+- [x] D?couverte UDP (module + int?gration de base dans le service de partage/UI param?tres)
+- [x] Scaffolding chat et signalisation (REST + WebSocket backend, vues Flet bas?es sur API/polling, publication catalogue)
+- [ ] Client m?dia WebRTC complet (audio/vid?o/partage d'?cran) et UX appels de bout en bout
+- [ ] Validation finale multi-appareils sur LAN r?el, tests de charge en amphi, packaging/livraison binaire
 
-- [x] **Jours 1–2** — Architecture des dossiers, schéma de base Django, maquette Flet
-- [x] **Jours 3–4** — Registre des nœuds et scanner UDP Zeroconf
-- [ ] **Jours 5–7** — Transfert P2P par blocs (sockets TCP et cache anti-coupure)
-- [ ] **Jours 8–9** — Signalisation WebSocket et appels WebRTC (Local Meet)
-- [ ] **Jour 10** — Tests de charge en amphi, recette et livraison du binaire
+> Remarque : les ?l?ments non coch?s n?cessitent des tests manuels sur mat?riel/r?seau r?el et/ou des composants m?dia suppl?mentaires.
 
 ---
 

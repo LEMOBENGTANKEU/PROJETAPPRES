@@ -7,6 +7,7 @@ import socket
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from core.discovery import UdpPeerDiscovery
 from core.p2p import FileManifest, PeerBlockServer, PieceStore
 from .backend_client import BackendApiError
 from .local_state import LocalStateStore
@@ -24,6 +25,8 @@ class SharingService:
         listen_ip=None,
         listen_port=0,
         heartbeat_interval=30,
+        discovery_port=37020,
+        enable_discovery=True,
     ):
         self.backend_client = backend_client
         home = Path.home() / "CampusShare"
@@ -32,8 +35,11 @@ class SharingService:
         self.listen_ip = listen_ip
         self.listen_port = listen_port
         self.heartbeat_interval = heartbeat_interval
+        self.discovery_port = discovery_port
+        self.enable_discovery = enable_discovery
         self.server = None
         self.node_id = None
+        self.discovery = None
         self._shared_resources = {}
         self._heartbeat_task = None
         self._operation_lock = asyncio.Lock()
@@ -89,6 +95,7 @@ class SharingService:
             }
             if remember:
                 self.state_store.remember_shared_resource(resource)
+            await self._ensure_discovery_locked()
             if self._heartbeat_task is None:
                 self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
 
@@ -135,8 +142,41 @@ class SharingService:
                     await heartbeat_task
                 except asyncio.CancelledError:
                     pass
+            await self._stop_discovery_locked()
             await self._shutdown_server_locked()
             await self._unregister_node_locked()
+
+    def discovered_peers(self):
+        discovery = self.discovery
+        if discovery is None:
+            return []
+        return discovery.peers()
+
+    async def _ensure_discovery_locked(self):
+        if not self.enable_discovery or self.discovery is not None:
+            return
+        node_name = self.state_store.ensure_node_identity().get("node", {}).get("node_name", "campusshare")
+        try:
+            discovery = UdpPeerDiscovery(
+                listen_port=self.discovery_port,
+                broadcast_port=self.discovery_port,
+                service_port=self.listen_port,
+                node_name=node_name,
+            )
+            await discovery.start()
+            self.discovery = discovery
+        except OSError:
+            self.discovery = None
+            logger.exception("Impossible de démarrer la découverte UDP des pairs.")
+
+    async def _stop_discovery_locked(self):
+        discovery = self.discovery
+        self.discovery = None
+        if discovery is not None:
+            try:
+                await discovery.stop()
+            except OSError:
+                logger.exception("Impossible d'arrêter la découverte UDP des pairs.")
 
     async def _ensure_node_registered_locked(self):
         if self.node_id is not None:

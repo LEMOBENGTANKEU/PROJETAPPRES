@@ -304,7 +304,7 @@ def build_courses_view(
         scroll=ft.ScrollMode.AUTO,
         spacing=20,
         controls=[
-            build_course_header(page),
+            build_course_header(page, backend_client, sharing_service),
             ft.Container(
                 bgcolor=theme.BG_CARD,
                 border=border_all(1, theme.BORDER),
