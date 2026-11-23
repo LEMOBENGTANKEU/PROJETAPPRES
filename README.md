@@ -139,7 +139,7 @@ campus-share/
 | `ws://<server_ip>:8000/ws/chat/<ue_code>/` | Discussion temps r?el par UE (auth JWT via `?token=`) |
 | `ws://<server_ip>:8000/ws/signaling/<room_id>/` | Relais/persistance des messages de signalisation (SDP/ICE, auth JWT via `?token=`) |
 
-> Le client Flet actuel int?gre le chat et la signalisation principalement via REST/polling; le transport m?dia WebRTC (audio/vid?o/partage d'?cran) n'est pas finalis? c?t? client desktop.
+> Le client Flet int?gre le chat et la signalisation via REST et peut utiliser les WebSockets lorsque disponibles; le transport m?dia WebRTC (audio/vid?o/partage d'?cran) n?cessite un client m?dia compatible et une validation sur mat?riel/r?seau r?el.
 
 ---
 
@@ -274,17 +274,17 @@ Le pair serveur doit être explicitement lié à son adresse LAN, par exemple
 
 ---
 
-## Feuille de route (?tat)
+## ?tat d'avancement
 
 - [x] Architecture, base Django/Flet, auth JWT, catalogue et registre r?seau
 - [x] Moteur P2P TCP par blocs, manifeste SHA-256, cache/reprise, scheduler multi-pairs
 - [x] Int?gration client (catalogue/t?l?chargement/partage opt-in), persistance consentement, auto-reshare
 - [x] D?couverte UDP (module + int?gration de base dans le service de partage/UI param?tres)
-- [x] Scaffolding chat et signalisation (REST + WebSocket backend, vues Flet bas?es sur API/polling, publication catalogue)
-- [ ] Client m?dia WebRTC complet (audio/vid?o/partage d'?cran) et UX appels de bout en bout
-- [ ] Validation finale multi-appareils sur LAN r?el, tests de charge en amphi, packaging/livraison binaire
+- [x] Chat et signalisation backend (REST + WebSocket Channels), vues Flet, publication catalogue et partage local
+- [~] Signalisation d'appels (SDP/ICE) et UI de salle impl?ment?es ; transport m?dia WebRTC audio/vid?o/partage d'?cran complet d?pend d'un client m?dia/stack temps r?el et d'une validation terrain
+- [~] Validation multi-appareils sur LAN r?el, tests de charge en amphi et packaging/livraison binaire : proc?dures et tests automatis?s fournis, ex?cution finale requise sur l'environnement cible
 
-> Remarque : les ?l?ments non coch?s n?cessitent des tests manuels sur mat?riel/r?seau r?el et/ou des composants m?dia suppl?mentaires.
+> Remarque : les ?l?ments marqu?s [~] sont partiellement livr?s c?t? logiciel/protocole dans ce d?p?t ; leur validation finale (r?seau r?el, mat?riel m?dia, charge, packaging ex?cutable) d?pend de l'environnement de d?ploiement.
 
 ---
 

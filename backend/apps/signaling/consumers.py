@@ -64,10 +64,10 @@ class SignalingConsumer(AsyncWebsocketConsumer):
             "sender_channel": self.channel_name,
             "message": {
                 "id": saved.id,
-                "type": saved.message_type,
                 "room_id": saved.room_id,
                 "sender": user.id,
                 "sender_username": user.username,
+                "message_type": saved.message_type,
                 "payload": saved.payload,
                 "created_at": saved.created_at.isoformat(),
             },

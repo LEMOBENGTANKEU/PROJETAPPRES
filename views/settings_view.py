@@ -18,7 +18,7 @@ def build_settings_view(
     def on_theme_change(e):
         page.theme_mode = ft.ThemeMode.DARK if e.control.value else ft.ThemeMode.LIGHT
         page.update()
-        notify(page, "Thème : " + ("Sombre" if e.control.value else "Clair"), kind="info")
+        notify(page, "ThÃ¨me : " + ("Sombre" if e.control.value else "Clair"), kind="info")
 
     theme_switch = ft.Switch(
         label="Theme sombre",
@@ -49,9 +49,107 @@ def build_settings_view(
         color=theme.TEXT_MUTED,
     )
 
+    peers_text = ft.Text(
+        "La dÃ©couverte UDP dÃ©marre lorsque le partage P2P est actif.",
+        size=12,
+        color=theme.TEXT_MUTED,
+        selectable=True,
+    )
+    shares_column = ft.Column(spacing=8)
+
+    def refresh_peers(_e=None):
+        if sharing_service is None or not hasattr(sharing_service, "discovered_peers"):
+            peers_text.value = "Service de dÃ©couverte indisponible."
+            peers_text.color = theme.TEXT_MUTED
+        else:
+            peers = sharing_service.discovered_peers()
+            if peers:
+                lines = []
+                for peer in peers:
+                    lines.append(
+                        f"- {peer.get('node_name', '?')} @ {peer.get('ip', '?')}:{peer.get('service_port', '?')}"
+                    )
+                peers_text.value = "\n".join(lines)
+                peers_text.color = theme.SUCCESS
+            else:
+                peers_text.value = (
+                    "Aucun pair dÃ©couvert pour le moment. Lancez un partage ou vÃ©rifiez le rÃ©seau LAN/UDP."
+                )
+                peers_text.color = theme.TEXT_MUTED
+        try:
+            page.update()
+        except Exception:
+            pass
+
+    async def on_revoke_share(resource_id):
+        if sharing_service is None:
+            notify(page, "Service de partage indisponible.", kind="error")
+            return
+        try:
+            await sharing_service.unshare_resource(resource_id, revoke_consent=True)
+            notify(page, "Partage rÃ©voquÃ© pour cette ressource.", kind="success")
+        except Exception as exc:
+            logger.exception("RÃ©vocation du partage impossible.")
+            notify(page, f"Impossible de rÃ©voquer le partage : {exc}", kind="error")
+        refresh_shares()
+
+    def refresh_shares(_e=None):
+        shares_column.controls.clear()
+        records = []
+        if sharing_service is not None and hasattr(sharing_service, "consented_resources"):
+            try:
+                records = sharing_service.consented_resources()
+            except Exception:
+                records = []
+        if not records:
+            shares_column.controls.append(
+                ft.Text(
+                    "Aucune ressource partagÃ©e avec consentement enregistrÃ©.",
+                    size=12,
+                    color=theme.TEXT_MUTED,
+                )
+            )
+        else:
+            for record in records:
+                resource_id = str(record.get("id", ""))
+                title = str(record.get("file_name") or record.get("id") or "Ressource")
+                active = sharing_service.is_resource_shared(resource_id) if sharing_service else False
+                status_label = "actif" if active else "consenti (sera restaurÃ© Ã  la connexion si disponible)"
+                shares_column.controls.append(
+                    ft.Container(
+                        bgcolor="#F8FAFC",
+                        border_radius=10,
+                        padding=pad_all(10),
+                        content=ft.Row(
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            controls=[
+                                ft.Column(
+                                    spacing=2,
+                                    tight=True,
+                                    expand=True,
+                                    controls=[
+                                        ft.Text(title, size=13, weight=ft.FontWeight.W_600, color=theme.TEXT),
+                                        ft.Text(f"ID: {resource_id} Â· {status_label}", size=11, color=theme.TEXT_MUTED),
+                                    ],
+                                ),
+                                ft.TextButton(
+                                    "RÃ©voquer",
+                                    icon=ft.Icons.STOP_CIRCLE_OUTLINED,
+                                    on_click=lambda _e, rid=resource_id: page.run_task(on_revoke_share, rid) if hasattr(page, "run_task") else asyncio.get_running_loop().create_task(on_revoke_share(rid)),
+                                ),
+                            ],
+                        ),
+                    )
+                )
+        try:
+            page.update()
+        except Exception:
+            pass
+
     async def on_connect(_e):
         if backend_client is None:
-            notify(page, "Le client du serveur n'est pas configuré.", kind="error")
+            notify(page, "Le client du serveur n'est pas configurÃ©.", kind="error")
             return
         connect_button.disabled = True
         connection_status.value = "Connexion au serveur..."
@@ -65,17 +163,17 @@ def build_settings_view(
             connection_status.color = theme.ERROR
             notify(page, str(exc), kind="error")
         else:
-            connection_status.value = f"Connecté à {backend_client.base_url}"
+            connection_status.value = f"ConnectÃ© Ã  {backend_client.base_url}"
             connection_status.color = theme.SUCCESS
             password.value = ""
-            notify(page, "Connexion réussie au serveur CampusShare.", kind="success")
+            notify(page, "Connexion rÃ©ussie au serveur CampusShare.", kind="success")
             if sharing_service is not None:
                 try:
                     restored = await sharing_service.restore_consented_shares()
                     if restored:
                         notify(
                             page,
-                            f"{restored} ressource(s) partagée(s) automatiquement.",
+                            f"{restored} ressource(s) partagÃ©e(s) automatiquement.",
                             kind="success",
                         )
                 except (BackendApiError, OSError, ValueError, TypeError, KeyError) as exc:
@@ -85,6 +183,8 @@ def build_settings_view(
                         f"Partage automatique indisponible : {exc}",
                         kind="warning",
                     )
+                    refresh_shares()
+            refresh_peers()
             if on_connected is not None:
                 on_connected()
         finally:
@@ -96,6 +196,8 @@ def build_settings_view(
         icon=ft.Icons.LAN,
         on_click=on_connect,
     )
+
+    refresh_shares()
 
     def close_about(dlg):
         dlg.open = False
@@ -111,7 +213,7 @@ def build_settings_view(
                 controls=[
                     ft.Text(f"{theme.APP_NAME} v{theme.APP_VERSION}", weight=ft.FontWeight.BOLD),
                     ft.Text("Partage de ressources academiques en pair a pair sur le reseau local (LAN)."),
-                    ft.Text("Conçu pour l'UY1 - Amphi 250.", size=12, color=theme.TEXT_MUTED),
+                    ft.Text("ConÃ§u pour l'UY1 - Amphi 250.", size=12, color=theme.TEXT_MUTED),
                 ],
             ),
             actions=[
@@ -120,34 +222,6 @@ def build_settings_view(
             actions_alignment=ft.MainAxisAlignment.END,
         )
         page.open(dlg)
-
-    peers_text = ft.Text(
-        "La découverte UDP démarre lorsque le partage P2P est actif.",
-        size=12,
-        color=theme.TEXT_MUTED,
-        selectable=True,
-    )
-
-    def refresh_peers(_e=None):
-        if sharing_service is None or not hasattr(sharing_service, "discovered_peers"):
-            peers_text.value = "Service de découverte indisponible."
-            peers_text.color = theme.TEXT_MUTED
-        else:
-            peers = sharing_service.discovered_peers()
-            if peers:
-                lines = []
-                for peer in peers:
-                    lines.append(
-                        f"- {peer.get('node_name', '?')} @ {peer.get('ip', '?')}:{peer.get('service_port', '?')}"
-                    )
-                peers_text.value = "\n".join(lines)
-                peers_text.color = theme.SUCCESS
-            else:
-                peers_text.value = (
-                    "Aucun pair découvert pour le moment. Lancez un partage ou vérifiez le réseau LAN/UDP."
-                )
-                peers_text.color = theme.TEXT_MUTED
-        page.update()
 
     return ft.Column(
         expand=True,
@@ -175,7 +249,7 @@ def build_settings_view(
                             ],
                         ),
                         ft.Text(
-                            "L'adresse doit pointer vers le serveur Django du même réseau local.",
+                            "L'adresse doit pointer vers le serveur Django du mÃªme rÃ©seau local.",
                             size=12,
                             color=theme.TEXT_MUTED,
                         ),
@@ -201,7 +275,7 @@ def build_settings_view(
                             controls=[
                                 ft.Icon(ft.Icons.WIFI_TETHERING, color=theme.TEXT_MUTED, size=20),
                                 ft.Text(
-                                    "Découverte des pairs (UDP LAN)",
+                                    "DÃ©couverte des pairs (UDP LAN)",
                                     size=15,
                                     weight=ft.FontWeight.W_700,
                                     color=theme.TEXT,
@@ -209,12 +283,41 @@ def build_settings_view(
                             ],
                         ),
                         ft.Text(
-                            "Affiche les pairs CampusShare détectés par beacon UDP sur le réseau local.",
+                            "Affiche les pairs CampusShare dÃ©tectÃ©s par beacon UDP sur le rÃ©seau local.",
                             size=12,
                             color=theme.TEXT_MUTED,
                         ),
                         ft.OutlinedButton("Actualiser les pairs", icon=ft.Icons.REFRESH, on_click=refresh_peers),
                         peers_text,
+                    ],
+                ),
+            ),
+            ft.Container(
+                bgcolor=theme.BG_CARD,
+                border_radius=theme.CARD_RADIUS,
+                padding=pad_all(20),
+                content=ft.Column(
+                    spacing=12,
+                    controls=[
+                        ft.Row(
+                            spacing=10,
+                            controls=[
+                                ft.Icon(ft.Icons.FOLDER_SHARED, color=theme.TEXT_MUTED, size=20),
+                                ft.Text(
+                                    "Partages consentis",
+                                    size=15,
+                                    weight=ft.FontWeight.W_700,
+                                    color=theme.TEXT,
+                                ),
+                            ],
+                        ),
+                        ft.Text(
+                            "Ressources que vous avez accepté de partager. Vous pouvez révoquer le consentement à tout moment.",
+                            size=12,
+                            color=theme.TEXT_MUTED,
+                        ),
+                        ft.OutlinedButton("Actualiser les partages", icon=ft.Icons.REFRESH, on_click=refresh_shares),
+                        shares_column,
                     ],
                 ),
             ),

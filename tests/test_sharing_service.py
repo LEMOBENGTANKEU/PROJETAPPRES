@@ -179,3 +179,17 @@ class SharingServiceTests(unittest.IsolatedAsyncioTestCase):
             await get_peer_pieces(endpoint, manifest),
             frozenset(range(manifest.piece_count)),
         )
+
+    async def test_unshare_resource_stops_server_and_revokes_consent(self):
+        path, resource, _manifest = self.make_resource("course.pdf", b"course content")
+        await self.service.share_resource(resource, path)
+        self.assertTrue(self.service.is_resource_shared(resource["id"]))
+        self.assertTrue(self.service.consented_resources())
+
+        await self.service.unshare_resource(resource["id"], revoke_consent=True)
+
+        self.assertFalse(self.service.is_resource_shared(resource["id"]))
+        self.assertEqual(self.service.consented_resources(), [])
+        self.assertEqual(self.backend.deleted_nodes, self.backend.node_ids)
+        self.assertIsNone(self.service.server)
+        self.assertEqual(self.state_store.load()["shared_resources"], {})

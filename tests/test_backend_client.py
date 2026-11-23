@@ -117,3 +117,10 @@ class BackendClientTests(unittest.IsolatedAsyncioTestCase):
             sum("page=2" in request for request in BackendHandler.requests),
             0,
         )
+
+    def test_websocket_url_includes_access_token(self):
+        self.client.access_token = "abc123"
+        ws_url = self.client.websocket_url("/ws/chat/INF101/")
+        self.assertTrue(ws_url.startswith("ws://"))
+        self.assertIn("/ws/chat/INF101/", ws_url)
+        self.assertIn("token=abc123", ws_url)

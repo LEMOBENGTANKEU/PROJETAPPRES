@@ -1,4 +1,6 @@
-﻿from rest_framework import generics, permissions
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from rest_framework import generics, permissions
 
 from .models import SignalingMessage
 from .serializers import SignalingMessageSerializer
@@ -25,9 +27,20 @@ class SignalingMessageListCreateView(generics.ListCreateAPIView):
         payload = self.request.data.get("payload", self.request.data)
         if not isinstance(payload, dict):
             payload = {"value": payload}
-        serializer.save(
+        message = serializer.save(
             sender=self.request.user,
             room_id=self.kwargs["room_id"],
             message_type=str(message_type),
             payload=payload,
         )
+        channel_layer = get_channel_layer()
+        if channel_layer is not None:
+            data = SignalingMessageSerializer(message).data
+            async_to_sync(channel_layer.group_send)(
+                f"signaling_{message.room_id}",
+                {
+                    "type": "signaling.message",
+                    "message": data,
+                    "sender_channel": None,
+                },
+            )

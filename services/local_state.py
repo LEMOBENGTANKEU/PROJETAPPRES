@@ -98,6 +98,22 @@ class LocalStateStore:
         state["shared_resources"][record["id"]] = record
         return self.save(state)
 
+    def forget_shared_resource(self, resource_id):
+        state = self.ensure_node_identity()
+        resource_id = str(resource_id)
+        shared = state.get("shared_resources", {})
+        if resource_id in shared:
+            shared.pop(resource_id, None)
+            return self.save(state)
+        return state
+
+    def list_shared_resources(self):
+        state = self.load()
+        shared = state.get("shared_resources", {})
+        if not isinstance(shared, dict):
+            return []
+        return list(shared.values())
+
     def _normalize_shared_record(self, resource_id, record):
         if not isinstance(resource_id, str) or not resource_id:
             resource_id = str(record.get("id", ""))

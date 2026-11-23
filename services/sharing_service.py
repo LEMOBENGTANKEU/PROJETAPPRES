@@ -152,6 +152,40 @@ class SharingService:
             return []
         return discovery.peers()
 
+    def is_resource_shared(self, resource_id):
+        return str(resource_id) in self._shared_resources
+
+    def consented_resources(self):
+        return self.state_store.list_shared_resources()
+
+    async def unshare_resource(self, resource_id, revoke_consent=True):
+        resource_id = str(resource_id)
+        async with self._operation_lock:
+            entry = self._shared_resources.pop(resource_id, None)
+            if entry is not None and self.server is not None:
+                root_hash = entry.get("manifest").root_hash
+                try:
+                    self.server.remove_resource(root_hash)
+                except Exception:
+                    logger.exception("Impossible de retirer la ressource %s du serveur P2P.", resource_id)
+            if revoke_consent:
+                try:
+                    self.state_store.forget_shared_resource(resource_id)
+                except Exception:
+                    logger.exception("Impossible de retirer le consentement local pour %s.", resource_id)
+            if not self._shared_resources:
+                heartbeat_task = self._heartbeat_task
+                self._heartbeat_task = None
+                if heartbeat_task is not None:
+                    heartbeat_task.cancel()
+                    try:
+                        await heartbeat_task
+                    except asyncio.CancelledError:
+                        pass
+                await self._stop_discovery_locked()
+                await self._shutdown_server_locked()
+                await self._unregister_node_locked()
+
     async def _ensure_discovery_locked(self):
         if not self.enable_discovery or self.discovery is not None:
             return

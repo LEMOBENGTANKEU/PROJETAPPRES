@@ -1,7 +1,7 @@
 import asyncio
 import json
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urljoin, urlsplit
+from urllib.parse import urlencode, urljoin, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
 
@@ -220,6 +220,18 @@ class BackendClient:
     def _origin(url):
         parsed = urlsplit(url)
         return parsed.scheme, parsed.netloc
+
+    def websocket_url(self, path, params=None):
+        if not self.base_url:
+            raise BackendApiError("L'adresse du serveur n'est pas configurée.")
+        parsed = urlsplit(self.base_url)
+        scheme = "wss" if parsed.scheme == "https" else "ws"
+        query = dict(params or {})
+        if self.access_token:
+            query["token"] = self.access_token
+        qs = urlencode(query)
+        ws_path = path if str(path).startswith("/") else "/" + str(path)
+        return urlunsplit((scheme, parsed.netloc, ws_path, qs, ""))
 
     def _request_sync(
         self,
