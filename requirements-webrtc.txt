@@ -1,0 +1,8 @@
+﻿# Dépendances optionnelles pour le média WebRTC (client desktop)
+# Compatibilité dépendante de la plateforme/Python (aiortc/av peuvent nécessiter wheels natifs).
+aiortc>=1.9,<2
+av>=12,<15
+opencv-python>=4.10,<5
+mss>=9,<11
+numpy>=2,<3
+sounddevice>=0.5,<1

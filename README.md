@@ -139,7 +139,7 @@ campus-share/
 | `ws://<server_ip>:8000/ws/chat/<ue_code>/` | Discussion temps r?el par UE (auth JWT via `?token=`) |
 | `ws://<server_ip>:8000/ws/signaling/<room_id>/` | Relais/persistance des messages de signalisation (SDP/ICE, auth JWT via `?token=`) |
 
-> Le client Flet int?gre le chat et la signalisation via REST et peut utiliser les WebSockets lorsque disponibles; le transport m?dia WebRTC (audio/vid?o/partage d'?cran) n?cessite un client m?dia compatible et une validation sur mat?riel/r?seau r?el.
+> Le client Flet int?gre le chat et la signalisation via REST/WebSocket. Un module média WebRTC optionnel (`services/webrtc_media_service.py`, UI dans `views/calls_view.py`) prend en charge caméra/partage d'écran/SDP-ICE via `aiortc` + dépendances média quand elles sont installées et autorisées par l'OS; la validation finale audio/vidéo bidirectionnelle reste à effectuer sur machines cibles avec périphériques réels.
 
 ---
 
@@ -164,7 +164,12 @@ python -m pip install -r requirements.txt
 
 python manage.py migrate
 python manage.py test
+
+# Serveur HTTP de développement Django (sans ASGI WebSocket complet en production)
 python manage.py runserver 0.0.0.0:8000
+
+# Serveur ASGI recommandé pour WebSockets (Channels)
+python -m uvicorn config.asgi:application --host 0.0.0.0 --port 8000
 ```
 
 Le backend démarre avec SQLite et le modèle utilisateur CampusShare (étudiant,
@@ -172,6 +177,8 @@ enseignant, administrateur). Le secret de développement ne doit jamais être
 utilisé en production : définir `DJANGO_SECRET_KEY` et `DJANGO_DEBUG=false`
 dans l'environnement de déploiement. Le serveur écoute sur toutes les
 interfaces du LAN, port **8000**.
+
+Pour les WebSockets Channels, utiliser un serveur ASGI. `uvicorn` est inclus dans `backend/requirements.txt` et validé comme compatible avec la configuration ASGI actuelle; `daphne` peut être une alternative sur des environnements Python/supportés compatibles, mais son installation a échoué sur l'environnement de développement Python 3.15 utilisé ici (dépendance native/transitive).
 
 ### API d'authentification
 
@@ -281,10 +288,12 @@ Le pair serveur doit être explicitement lié à son adresse LAN, par exemple
 - [x] Int?gration client (catalogue/t?l?chargement/partage opt-in), persistance consentement, auto-reshare
 - [x] D?couverte UDP (module + int?gration de base dans le service de partage/UI param?tres)
 - [x] Chat et signalisation backend (REST + WebSocket Channels), vues Flet, publication catalogue et partage local
-- [~] Signalisation d'appels (SDP/ICE) et UI de salle impl?ment?es ; transport m?dia WebRTC audio/vid?o/partage d'?cran complet d?pend d'un client m?dia/stack temps r?el et d'une validation terrain
-- [~] Validation multi-appareils sur LAN r?el, tests de charge en amphi et packaging/livraison binaire : proc?dures et tests automatis?s fournis, ex?cution finale requise sur l'environnement cible
+- [~] WebRTC média côté client desktop Flet : module optionnel implémenté (`services/webrtc_media_service.py`, UI `views/calls_view.py`) pour énumération de périphériques, capture caméra/écran, session `aiortc`, échange SDP/ICE via la signalisation existante, et aperçus locaux/distants. La capture audio dépend du backend audio/ffmpeg disponible; la validation média bidirectionnelle complète (permissions OS, matériel réel, qualité LAN) reste à faire sur machines cibles.
+- [~] Packaging/livraison binaire : scripts/spec fournis (`scripts/package_client_windows.ps1`, `packaging/campusshare_client.spec`, `packaging/README.md`, `requirements-webrtc.txt`). La génération et la validation de l'exécutable/installateur final doivent être faites sur les machines cibles.
+- [~] Serveur ASGI production pour WebSockets : `uvicorn` + `websockets` ajoutés à `backend/requirements.txt`; commande ASGI documentée. `daphne` reste une alternative possible sur environnements compatibles, mais son installation a échoué ici sur Python 3.15 (dépendance native/transitive). Validation de déploiement finale requise sur l'environnement cible.
+- [ ] Validation multi-appareils sur LAN réel, tests de charge en amphi et recette terrain finale
 
-> Remarque : les ?l?ments marqu?s [~] sont partiellement livr?s c?t? logiciel/protocole dans ce d?p?t ; leur validation finale (r?seau r?el, mat?riel m?dia, charge, packaging ex?cutable) d?pend de l'environnement de d?ploiement.
+> Remarque : les éléments marqués [~] sont implémentés au niveau logiciel/configuration dans ce dépôt; leur validation finale (matériel média, exécutable cible, déploiement ASGI/LAN réel, charge) dépend de l'environnement de déploiement.
 
 ---
 

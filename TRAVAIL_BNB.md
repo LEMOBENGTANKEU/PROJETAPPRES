@@ -68,12 +68,19 @@ Ce document résume le travail effectué sur ma branche personnelle et les piste
   - `backend\.venv\Scripts\python.exe backend\manage.py test apps`
   - `backend\.venv\Scripts\python.exe backend\manage.py check`
 
+### 1.11 WebRTC média, packaging et serveur ASGI (implémentation logicielle)
+- Ajout d'un service média optionnel [services/webrtc_media_service.py](C:/projets/PROJETAPPRES/services/webrtc_media_service.py) : détection de capacités, énumération des périphériques, session `aiortc` (caméra/écran/audio selon backends), gestion SDP offre/réponse et candidats ICE, aperçus locaux/distants pour Flet.
+- Mise à jour de [views/calls_view.py](C:/projets/PROJETAPPRES/views/calls_view.py) : contrôles média (caméra, partage d'écran, micro, offre SDP, fermeture), sélection/rafraîchissement des périphériques, affichage des capacités/dépendances manquantes, journal de signalisation conservé.
+- Ajout des dépendances optionnelles média [requirements-webrtc.txt](C:/projets/PROJETAPPRES/requirements-webrtc.txt) et documentation associée.
+- Packaging client Windows : [scripts/package_client_windows.ps1](C:/projets/PROJETAPPRES/scripts/package_client_windows.ps1), [packaging/campusshare_client.spec](C:/projets/PROJETAPPRES/packaging/campusshare_client.spec), [packaging/README.md](C:/projets/PROJETAPPRES/packaging/README.md).
+- Serveur ASGI WebSocket : ajout de `uvicorn>=0.30,<1` et `websockets>=15,<17` dans [backend/requirements.txt](C:/projets/PROJETAPPRES/backend/requirements.txt), documentation de la commande `python -m uvicorn config.asgi:application --host 0.0.0.0 --port 8000`. `daphne` reste alternative sur environnement compatible (échec d'installation constaté ici sur Python 3.15).
+
 ## 2. Ce qui reste à faire pour l'amélioration
 
-### 2.1 Média et appels (WebRTC complet)
-- Intégrer un client média WebRTC complet côté desktop (capture micro/caméra/écran, rendu des flux, gestion des pistes et périphériques).
-- Gérer de bout en bout les sessions d'appel (offre/réponse/ICE, états d'appel, reconnexion, erreurs média, permissions utilisateur).
-- Tester la qualité audio/vidéo et la stabilité sur réseau local réel.
+### 2.1 Média et appels (validation WebRTC complète)
+- Valider la capture micro/caméra/partage d'écran et le rendu bidirectionnel sur machines cibles avec périphériques réels et permissions OS.
+- Vérifier la compatibilité des dépendances média optionnelles (`aiortc`, `av`, `opencv-python`, `mss`, `sounddevice`, `ffmpeg` si requis) selon l'OS/Python cible.
+- Durcir la gestion des erreurs média (permissions refusées, périphérique indisponible, reconnexion ICE, fermeture propre des tracks).
 
 ### 2.2 Validation terrain et robustesse réseau
 - Exécuter des tests multi-appareils sur le même LAN/Wi-Fi réel (découverte UDP, transfert P2P inter-machines, heartbeats, reconnexions).
@@ -91,8 +98,8 @@ Ce document résume le travail effectué sur ma branche personnelle et les piste
 - Étendre les flux collaboratifs (gestion fine des salons/UE, modération, rôles et permissions plus détaillés).
 
 ### 2.5 Industrialisation et livraison
-- Mettre en place un packaging/livraison binaire reproductible pour les postes cibles (Windows/Linux selon besoin) et documenter l'installation.
+- Exécuter et valider le packaging binaire sur machines cibles Windows (PyInstaller/Flet build), signer/distribuer l'installateur si nécessaire.
 - Ajouter CI/CD (lint, tests automatiques, build/package, vérifications de sécurité/dépendances).
-- Préparer une procédure de déploiement backend ASGI robuste (serveur compatible WebSockets en production, supervision, sauvegardes/migrations).
+- Finaliser la procédure de déploiement backend ASGI en environnement cible (service/supervision, reverse proxy HTTPS/WSS, sauvegardes/migrations, variables d'environnement).
 
-> Remarque : une partie importante de la base fonctionnelle est implémentée et validée par tests automatisés ; les améliorations restantes concernent surtout le média WebRTC complet, la validation sur infrastructure réelle et l'industrialisation.
+> Remarque : les trois manques fonctionnels demandés ont été traités au niveau logiciel/configuration du dépôt (WebRTC média optionnel intégré, scripts/spec de packaging, serveur ASGI uvicorn documenté/configuré). La validation finale reste dépendante des machines cibles, périphériques média, réseau LAN réel et environnement de déploiement.
